@@ -1,3 +1,4 @@
+import SpacePageProtectionSettings from "@/features/space/components/space-page-protection-settings";
 import React, { useState } from "react";
 import { useSpaceQuery } from "@/features/space/queries/space-query.ts";
 import { EditSpaceForm } from "@/features/space/components/edit-space-form.tsx";
@@ -87,6 +88,7 @@ export default function SpaceDetails({ spaceId, readOnly }: SpaceDetailsProps) {
           </div>
 
           <EditSpaceForm space={space} readOnly={readOnly} />
+          <SpacePageProtectionSettings space={space} readOnly={readOnly} />
 
           {!readOnly && (
             <>

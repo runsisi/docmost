@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PageProtectionService } from '../../page/protection/page-protection.service';
 import { CreateSpaceDto } from '../dto/create-space.dto';
 import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
 import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
@@ -34,6 +35,7 @@ import {
 export class SpaceService {
   constructor(
     private spaceRepo: SpaceRepo,
+    private readonly protection: PageProtectionService,
     private spaceMemberService: SpaceMemberService,
     private shareRepo: ShareRepo,
     private workspaceRepo: WorkspaceRepo,
@@ -182,6 +184,19 @@ export class SpaceService {
     let updatedSpace: Space;
 
     await executeTx(this.db, async (trx) => {
+      if (updateSpaceDto.rootDefaultLocked !== undefined) {
+        const prev = await this.protection.setSpaceDefault(
+          updateSpaceDto.spaceId,
+          workspaceId,
+          updateSpaceDto.rootDefaultLocked,
+          trx,
+        );
+        if (prev !== updateSpaceDto.rootDefaultLocked) {
+          before.rootDefaultLocked = prev;
+          after.rootDefaultLocked = updateSpaceDto.rootDefaultLocked;
+        }
+      }
+
       if (typeof updateSpaceDto.disablePublicSharing !== 'undefined') {
         const prev = settingsBefore?.sharing?.disabled ?? false;
         if (prev !== updateSpaceDto.disablePublicSharing) {

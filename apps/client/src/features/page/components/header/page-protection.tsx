@@ -1,11 +1,18 @@
-import { ActionIcon, Group, Menu, Text, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Checkbox,
+  Group,
+  Menu,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import { IconChevronDown, IconLock, IconLockOpen } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { notifications } from "@mantine/notifications";
 import { IPage } from "@/features/page/types/page.types";
 import api from "@/lib/api-client";
-import { queryClient } from "@/main";
+import { invalidatePageProtection } from "@/features/page/hooks/use-page-protection-subscription";
 
 export function PageProtection({ page }: { page: IPage }) {
   const { t } = useTranslation();
@@ -16,7 +23,7 @@ export function PageProtection({ page }: { page: IPage }) {
         mode,
         version: page.protection.version,
       }),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["pages"] }),
+    onSettled: invalidatePageProtection,
     onError: (error: any) =>
       notifications.show({
         color: "red",
@@ -28,6 +35,11 @@ export function PageProtection({ page }: { page: IPage }) {
   });
   if (!page.protection) return null;
   const state = page.protection;
+  const spaceDefault = t(
+    state.rootDefaultLocked
+      ? "Space default: locked"
+      : "Space default: unlocked",
+  );
   const description =
     state.mode !== "inherit"
       ? t(
@@ -38,7 +50,7 @@ export function PageProtection({ page }: { page: IPage }) {
       : state.inherited
         ? t(state.isLocked ? "Inherited: locked" : "Inherited: unlocked") +
           (state.sourceTitle ? ` · ${state.sourceTitle}` : "")
-        : t("Inherit parent · root pages are unlocked");
+        : spaceDefault;
   const disabled = !page.permissions?.canManageProtection || mutation.isPending;
   return (
     <Group gap={2} wrap="nowrap">
@@ -65,12 +77,24 @@ export function PageProtection({ page }: { page: IPage }) {
           <Text size="sm" p="xs">
             {description}
           </Text>
-          <Menu.Item
-            disabled={disabled || state.mode === "inherit"}
-            onClick={() => mutation.mutate("inherit")}
-          >
-            {t("Inherit parent page")}
-          </Menu.Item>
+          <Checkbox
+            m="xs"
+            checked={state.mode === "inherit"}
+            disabled={disabled}
+            label={t(
+              page.parentPageId ? "Inherit parent page" : "Use space default",
+            )}
+            description={!page.parentPageId ? spaceDefault : undefined}
+            onChange={(event) =>
+              mutation.mutate(
+                event.currentTarget.checked
+                  ? "inherit"
+                  : state.isLocked
+                    ? "locked"
+                    : "unlocked",
+              )
+            }
+          />
           <Text size="xs" c="dimmed" p="xs">
             {t(
               "Protection prevents content changes. Comments and page organization remain available.",

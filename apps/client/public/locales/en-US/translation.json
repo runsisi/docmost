@@ -1509,5 +1509,11 @@
   "Local recovery copies": "Local recovery copies",
   "Protection changed. Unconfirmed edits were saved locally and will not be replayed. Copy or export them before discarding.": "Protection changed. Unconfirmed edits were saved locally and will not be replayed. Copy or export them before discarding.",
   "Locked": "Locked",
-  "Unable to save title. A local recovery copy was retained.": "Unable to save title. A local recovery copy was retained."
+  "Unable to save title. A local recovery copy was retained.": "Unable to save title. A local recovery copy was retained.",
+  "Lock root pages by default": "Lock root pages by default",
+  "Root pages without an explicit protection setting and their inheriting descendants follow this setting. Explicitly locked or unlocked pages are unaffected.": "Root pages without an explicit protection setting and their inheriting descendants follow this setting. Explicitly locked or unlocked pages are unaffected.",
+  "Failed to change space page protection": "Failed to change space page protection",
+  "Use space default": "Use space default",
+  "Space default: locked": "Space default: locked",
+  "Space default: unlocked": "Space default: unlocked"
 }

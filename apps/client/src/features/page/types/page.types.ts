@@ -15,6 +15,7 @@ export interface IPage {
   protection?: {
     mode: "inherit" | "locked" | "unlocked";
     isLocked: boolean;
+    rootDefaultLocked: boolean;
     inherited: boolean;
     sourcePageId: string | null;
     sourceTitle: string | null;

@@ -17,14 +17,17 @@ const container = JSON.parse(execFileSync('docker', ['inspect', 'docmost-local-d
 const secret = container.Config.Env.find(v => v.startsWith('APP_SECRET=')).slice(11);
 const users = json('select json_agg(u) from (select id,email,name,role,workspace_id from users) u');
 const owner = users.find(u => u.role === 'owner');
-const member = users.find(u => u.role === 'member');
-assert(owner && member, 'Existing administrator and member are required');
-const space = json("select row_to_json(s) from (select id,slug from spaces where slug='general') s");
-const otherSpace = json("select row_to_json(s) from (select id,slug from spaces where slug='xcube') s");
+assert(owner, 'Existing administrator is required');
+let space, otherSpace;
+const temporarySpaces = [];
 const runId = randomUUID();
 const temporaryUsers = [];
 const roots = [];
+const originalSpaceState = sql("select md5(string_agg(id::text || coalesce(settings::text,''), '' order by id)) from spaces");
+const originalMemberships = sql("select md5(string_agg(id::text || role, '' order by id)) from space_members");
 const originalIds = json('select coalesce(json_agg(id),\'[]\') from pages');
+const pageFingerprints = () => json("select json_agg(p) from (select id, md5(coalesce(title,'')) as title, md5(coalesce(content::text,'')) as content, is_locked, protection_version from pages order by id) p");
+const originalFingerprints = pageFingerprints();
 const originalSnapshot = sql(`select md5(string_agg(id::text || coalesce(title,'') || coalesce(content::text,'') || coalesce(is_locked::text,'inherit'), '' order by id)) from pages where id in (${originalIds.map(id=>`'${id}'`).join(',')})`);
 function token(user) {
   const iat = Math.floor(Date.now()/1000);
@@ -65,27 +68,122 @@ const record = message => console.log('PASS '+message);
     if (await editMode.count()) await editMode.evaluate(el => document.querySelector(`label[for="${el.id}"]`).click());
     return tab;
   }
-  const bodyText = tab => tab.evaluate(()=>Array.from(document.querySelectorAll('.tiptap')).find(el=>el.editor?.extensionManager.extensions.some(e=>e.name==='collaboration'))?.editor.getText());
+  async function bodyText(tab) {
+    const value = await tab.waitForFunction(()=>Array.from(document.querySelectorAll('.tiptap')).find(el=>el.editor?.extensionManager.extensions.some(e=>e.name==='collaboration' && e.options.provider?.synced))?.editor.getText());
+    return value.jsonValue();
+  }
+  async function waitVersion(tab,version) {
+    await tab.waitForFunction(version=>Array.from(document.querySelectorAll('.tiptap')).some(el=>{
+      const provider=el.editor?.extensionManager.extensions.find(e=>e.name==='collaboration')?.options.provider;
+      return provider?.synced && JSON.parse(provider.configuration.token).protectionVersion===version;
+    }),version);
+  }
+  async function toggleInheritance(tab,box,checked) {
+    const id=await box.getAttribute('id');
+    const [response]=await Promise.all([
+      tab.waitForResponse(r=>r.url().endsWith('/api/pages/protection')),
+      box.click(),
+    ]);
+    assert.equal(response.status(),200);
+    await tab.waitForFunction(({id,checked})=>{
+      const input=document.getElementById(id);
+      return input?.checked===checked && !input.disabled;
+    },{id,checked});
+  }
   async function waitEditable(tab,editable) {
     await tab.waitForFunction(expected=>Array.from(document.querySelectorAll('.tiptap')).some(el=>el.editor?.extensionManager.extensions.some(e=>e.name==='collaboration') && el.editor.isEditable===expected),editable,{timeout:20000});
   }
   try {
     admin = await context(owner);
-    const writer = await context(member);
-    for (const role of ['reader','outsider']) {
+    for (const suffix of ['main','other']) {
+      const createdSpace = await post(admin,'/spaces/create',{name:`Protection ${suffix} ${runId}`,slug:`protection-${suffix}-${runId}`});
+      temporarySpaces.push(createdSpace.id);
+      if (suffix==='main') space=createdSpace; else otherSpace=createdSpace;
+    }
+    for (const role of ['reader','outsider','writer','admin']) {
       const id = randomUUID(); temporaryUsers.push(id);
       sql(`insert into users (id,name,email,role,workspace_id,email_verified_at) values ('${id}','Protection ${role}','protection-${runId}-${role}@example.invalid','member','${owner.workspace_id}',now())`);
-      if (role==='reader') sql(`insert into space_members (user_id,space_id,role) values ('${id}','${space.id}','reader')`);
+      if (role!=='outsider') await post(admin,'/spaces/members/add',{spaceId:space.id,userIds:[id],groupIds:[],role});
     }
+    const writer = await context({id:temporaryUsers[2],workspace_id:owner.workspace_id});
+    const spaceAdmin = await context({id:temporaryUsers[3],workspace_id:owner.workspace_id});
     const reader = await context({id:temporaryUsers[0],workspace_id:owner.workspace_id});
     const outsider = await context({id:temporaryUsers[1],workspace_id:owner.workspace_id});
     const A = await create('A'); const B = await create('B',A.id); const C = await create('C',B.id); const D = await create('D',C.id);
-    assert.equal(A.protection.mode,'inherit'); assert.equal(A.isLocked,false);
+    assert.equal(A.protection.mode,'inherit'); assert.equal(A.isLocked,true);
+    assert.equal(A.protection.rootDefaultLocked,true);
+    // Both root and lazily loaded descendants must update without collapsing the tree.
+    {
+      const tab=await open(admin,B);
+      const peer=await open(writer,B);
+      const lockSelector = page => `a[href$="${page.slugId}"] [aria-label="Locked"], a[href$="${page.slugId}"] [aria-label="已锁定"]`;
+      async function treeLocked(page,locked) {
+        for (const browserTab of [tab,peer]) {
+          await browserTab.locator(`a[href$="${page.slugId}"]`).first().waitFor();
+          await browserTab.locator(lockSelector(page)).waitFor({state:locked?'visible':'hidden',timeout:5000});
+        }
+      }
+      await treeLocked(A,true); await treeLocked(B,true);
+      await set(A.id,'unlocked'); await waitEditable(tab,true);
+      await treeLocked(A,false); await treeLocked(B,false);
+      await set(A.id,'locked'); await waitEditable(tab,false);
+      await treeLocked(A,true); await treeLocked(B,true);
+      await set(B.id,'unlocked'); await treeLocked(A,true); await treeLocked(B,false);
+      await set(A.id,'inherit'); await set(B.id,'inherit');
+      await post(admin,'/spaces/update',{spaceId:space.id,rootDefaultLocked:false});
+      await treeLocked(A,false); await treeLocked(B,false);
+      await post(admin,'/spaces/update',{spaceId:space.id,rootDefaultLocked:true});
+      await treeLocked(A,true); await treeLocked(B,true);
+      await tab.close(); await peer.close();
+      record('two-browser sidebar root/expanded child locks refresh after page/ancestor/space-default changes without reload or collapse');
+      if (process.env.PROTECTION_TEST_FOCUS==='sidebar') return;
+    }
+    const defaultSetting = async (locked,ctx=spaceAdmin) => post(ctx,'/spaces/update',{spaceId:space.id,rootDefaultLocked:locked});
+    const settings = async () => (await post(admin,'/spaces/info',{spaceId:space.id})).settings;
+    const rawPages = () => sql(`select json_agg(p order by id) from (select id,is_locked,protection_version from pages where space_id='${space.id}') p`);
+    const originalRaw = rawPages();
+    const initialVersion = (await info(D.id)).protection.version;
+    await defaultSetting(true);
+    assert.equal((await info(D.id)).protection.version,initialVersion);
+    const initialSpaceVersion = (await settings())?.pageProtection?.version ?? 0;
+    assert.equal(initialSpaceVersion,2);
+    for (const invalid of [null,'false',0]) await post(admin,'/spaces/update',{spaceId:space.id,rootDefaultLocked:invalid},400);
+    await defaultSetting(false);
+    assert.equal((await settings()).pageProtection.version,initialSpaceVersion+1);
+    assert.equal((await info(D.id)).isLocked,false);
+    assert.equal((await info(D.id)).protection.sourcePageId,null);
+    assert.equal(rawPages(),originalRaw,'Default changes must not rewrite pages');
+    await post(writer,'/spaces/update',{spaceId:space.id,rootDefaultLocked:true},403);
+    await post(reader,'/spaces/update',{spaceId:space.id,rootDefaultLocked:true},403);
+    await post(outsider,'/spaces/update',{spaceId:space.id,rootDefaultLocked:true},[403,404]);
+    await post(admin,'/spaces/update',{spaceId:space.id,rootDefaultLocked:false,version:900,settings:{pageProtection:{version:900}}});
+    assert.equal((await settings()).pageProtection.version,initialSpaceVersion+1,'Client cannot set version');
+    const fresh = await create('New default'); assert.equal(fresh.isLocked,false);
+    await post(admin,'/pages/move-to-space',{pageId:fresh.id,spaceId:otherSpace.id});
+    assert.equal((await info(fresh.id)).isLocked,true);
+    await post(admin,'/pages/move-to-space',{pageId:fresh.id,spaceId:space.id});
+    assert.equal((await info(fresh.id)).isLocked,false);
+    const beforeCycle = (await info(D.id)).protection.version;
+    await defaultSetting(true); await defaultSetting(false);
+    assert.notEqual((await info(D.id)).protection.version,beforeCycle);
+    await post(writer,'/pages/update',{pageId:D.id,title:'stale',protectionVersion:beforeCycle},409);
+    await post(writer,'/pages/protection',{pageId:D.id,mode:'unlocked',version:beforeCycle},409);
+    sql(`update spaces set settings=settings || '{"testSetting":{"keep":true},"comments":{"allowViewerComments":false}}'::jsonb where id='${space.id}'`);
+    await Promise.all([defaultSetting(true),defaultSetting(true)]);
+    assert.equal((await settings()).pageProtection.version,initialSpaceVersion+4,'Concurrent identical writes increment once');
+    await defaultSetting(false);
+    assert.deepEqual((await settings()).testSetting,{keep:true});
+    assert.deepEqual((await settings()).comments,{allowViewerComments:false});
+    record('default locked; independent spaces; existing/new/inheriting/moved pages; no page rewrites; server-only versions, no-op/concurrent updates and stale conflicts; space admin allowed, members denied');
     await set(A.id,'locked',writer);
     assert.equal((await info(B.id)).isLocked,true);
     assert.equal((await info(D.id)).protection.sourcePageId,A.id);
     await set(C.id,'unlocked',writer);
     assert.equal((await info(D.id)).isLocked,false);
+    await defaultSetting(true);
+    assert.equal((await info(D.id)).isLocked,false);
+    assert.equal((await info(B.id)).isLocked,true);
+    await defaultSetting(false);
     const oldVersion = (await info(D.id)).protection.version;
     await set(A.id,'unlocked'); await set(A.id,'locked');
     assert.equal((await info(C.id)).protection.mode,'unlocked');
@@ -173,14 +271,16 @@ const record = message => console.log('PASS '+message);
     await writerTab.locator(`[data-comment-id="${inline.id}"]`).first().waitFor();
     record('comments, replies, resolving/reopening and controlled server inline marks work while locked');
 
-    await set(live.id,'unlocked'); await waitEditable(adminTab,true); await waitEditable(writerTab,true);
+    await set(live.id,'inherit'); await waitEditable(adminTab,true); await waitEditable(writerTab,true);
     await writer.setOffline(true);
     await writerTab.evaluate(()=>{const el=Array.from(document.querySelectorAll('.tiptap')).find(el=>el.editor?.extensionManager.extensions.some(e=>e.name==='collaboration'));el.editor.commands.insertContent(' OFFLINE-RECOVERY-ONLY');});
-    await set(live.id,'locked'); await set(live.id,'unlocked');
+    await defaultSetting(true); await defaultSetting(false);
     await writer.setOffline(false);
     await writerTab.getByText(/Local recovery copies|本地恢复副本/).waitFor({timeout:30000});
     await waitEditable(writerTab,true);
     await waitEditable(adminTab,true);
+    const onlineVersion = (await info(live.id)).protection.version;
+    await waitVersion(adminTab,onlineVersion); await waitVersion(writerTab,onlineVersion);
     assert(!(await bodyText(adminTab)).includes('OFFLINE-RECOVERY-ONLY'));
     assert(!(await bodyText(writerTab)).includes('OFFLINE-RECOVERY-ONLY'));
     assert(await writerTab.evaluate(()=>Object.values(localStorage).some(v=>v.includes('OFFLINE-RECOVERY-ONLY'))));
@@ -216,7 +316,7 @@ const record = message => console.log('PASS '+message);
     await waitEditable(writerTab,true);
     await writerTab.evaluate(()=>document.querySelector('[aria-label="Page title"], [aria-label="页面标题"]').editor.commands.setContent('PENDING-TITLE-RECOVERY'));
     await titleRequest;
-    await set(live.id,'locked'); await set(live.id,'unlocked');
+    await defaultSetting(true); await defaultSetting(false);
     releaseTitle();
     await waitEditable(writerTab,true);
     await new Promise(r=>setTimeout(r,800));
@@ -231,10 +331,50 @@ const record = message => console.log('PASS '+message);
     await adminTab.getByRole('button',{name:/^(Lock page|锁定页面)$/}).click();
     await waitEditable(adminTab,false);
     await adminTab.getByRole('button',{name:/^(Page protection|页面保护)$/}).click();
-    await adminTab.getByRole('menuitem',{name:/^(Inherit parent page|继承父页面)$/}).click();
+    await toggleInheritance(adminTab,adminTab.getByRole('checkbox',{name:/^(Use space default|使用空间默认设置)$/}),true);
     await waitEditable(adminTab,true);
     assert.equal((await info(live.id)).protection.mode,'inherit');
-    record('header lock toggle and inherit-parent menu work in the browser');
+    const inheritBox = adminTab.getByRole('checkbox',{name:/^(Use space default|使用空间默认设置)$/});
+    await toggleInheritance(adminTab,inheritBox,false);
+    assert.equal((await info(live.id)).protection.mode,'unlocked');
+    await toggleInheritance(adminTab,inheritBox,true);
+    await adminTab.keyboard.press('Escape');
+    const childTab = await open(admin,B);
+    await childTab.getByRole('button',{name:/^(Page protection|页面保护)$/}).click();
+    const childBox = childTab.getByRole('checkbox',{name:/^(Inherit parent page|继承父页面)$/});
+    assert(await childBox.isChecked());
+    await toggleInheritance(childTab,childBox,false);
+    assert.equal((await info(B.id)).protection.mode,'locked');
+    await toggleInheritance(childTab,childBox,true);
+    assert.equal((await info(B.id)).protection.mode,'inherit');
+    await childTab.close();
+    record('root/child inheritance checkboxes retain actual unlocked/locked state when unchecked and restore inheritance when checked');
+
+    const settingTab = await open(spaceAdmin,live);
+    await settingTab.getByRole('button',{name:/^(Space settings|空间设置)$/}).click();
+    await settingTab.getByRole('tab',{name:/^(Settings|设置)$/}).click();
+    const toggle = settingTab.getByRole('switch',{name:/^(Lock root pages by default|根页面默认锁定)/});
+    assert.equal(await toggle.isChecked(),false);
+    // A second open settings dialog must refresh via the space notification.
+    await adminTab.getByRole('button',{name:/^(Space settings|空间设置)$/}).click();
+    await adminTab.getByRole('tab',{name:/^(Settings|设置)$/}).click();
+    const secondToggle = adminTab.getByRole('switch',{name:/^(Lock root pages by default|根页面默认锁定)/});
+    await toggle.click({force:true});
+    await waitEditable(writerTab,false);
+    await adminTab.waitForFunction(()=>document.querySelector('input[role="switch"]')?.checked===true);
+    assert(await secondToggle.isChecked());
+    await settingTab.screenshot({path:path.join(output,'space-default.png'),fullPage:true});
+    await toggle.click({force:true}); await waitEditable(writerTab,true);
+    await adminTab.waitForFunction(()=>document.querySelector('input[role="switch"]')?.checked===false);
+    await settingTab.route('**/api/spaces/update',route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'Simulated save failure'})}));
+    await toggle.click({force:true});
+    await settingTab.getByText(/Failed to change space page protection|修改空间页面保护设置失败/).waitFor();
+    assert.equal(await toggle.isChecked(),false);
+    assert.equal((await settings()).pageProtection.rootDefaultLocked,false);
+    await settingTab.unroute('**/api/spaces/update');
+    await settingTab.close();
+    await adminTab.getByRole('button',{name:/^(Close|关闭)$/}).click();
+    record('space administrator switch saves immediately without license; two-browser settings/editor refresh; failed save retains real state');
     const historyTitle = 'History title '+runId;
     sql(`insert into page_history (page_id,slug_id,title,content,last_updated_by_id,space_id,workspace_id,created_at)
       values ('${live.id}','${live.slugId}','${historyTitle}','${JSON.stringify(content('History dialog restored body'))}'::jsonb,'${owner.id}','${space.id}','${owner.workspace_id}',now()+interval '1 second')`);
@@ -261,6 +401,8 @@ const record = message => console.log('PASS '+message);
 
     const readerTab = await open(reader,live); await waitEditable(readerTab,false);
     assert.equal(await readerTab.getByRole('button',{name:/^(Lock page|锁定页面)$/}).isDisabled(),true);
+    await readerTab.getByRole('button',{name:/^(Page protection|页面保护)$/}).click();
+    assert(await readerTab.getByRole('checkbox',{name:/^(Use space default|使用空间默认设置)$/}).isDisabled());
     await post(reader,'/pages/update',{pageId:live.id,title:'reader after unlock'},403);
     record('unlock never upgrades reader access; protection controls are view-only');
     assert.deepEqual(errors,[]);
@@ -272,9 +414,31 @@ const record = message => console.log('PASS '+message);
       const { PageProtectionService } = require('./dist/core/page/protection/page-protection.service');
       const times = [];
       const db = new Kysely({ dialect:new PostgresJSDialect({postgres:postgres(process.env.DATABASE_URL,{max:1})}), plugins:[new CamelCasePlugin()], log:e=>{if(e.level==='query') times.push(e.queryDurationMillis);} });
-      const service = new PageProtectionService(db, {});
+      const { PageRepo } = require('./dist/database/repos/page/page.repo');
+      const assert = require('node:assert/strict');
+      const service = new PageProtectionService(db, new PageRepo(db, null, null));
       (async()=>{
-        const results = {};
+        const listener = postgres(process.env.DATABASE_URL,{max:1});
+        const notifications=[];
+        let notified;
+        await listener.listen('page_protection',id=>{if(id===${JSON.stringify(space.id)}) {notifications.push(id); notified?.();}});
+        const initial=await service.resolve(${JSON.stringify(D.id)});
+        await assert.rejects(db.transaction().execute(async trx=>{
+          await service.setSpaceDefault(${JSON.stringify(space.id)},${JSON.stringify(owner.workspace_id)},!initial.rootDefaultLocked,trx);
+          assert.notEqual((await service.resolve(${JSON.stringify(D.id)},trx)).version,initial.version);
+          await new Promise(resolve=>setTimeout(resolve,100));
+          assert.equal(notifications.length,0,'No notification before commit');
+          throw new Error('Intentional rollback');
+        }),/Intentional rollback/);
+        assert.deepEqual(await service.resolve(${JSON.stringify(D.id)}),initial);
+        await new Promise(resolve=>setTimeout(resolve,100));
+        assert.equal(notifications.length,0,'Rollback must not notify');
+        const committedNotice=new Promise(resolve=>{notified=resolve});
+        await db.transaction().execute(trx=>service.setSpaceDefault(${JSON.stringify(space.id)},${JSON.stringify(owner.workspace_id)},!initial.rootDefaultLocked,trx));
+        await Promise.race([committedNotice,new Promise((_,reject)=>setTimeout(()=>reject(new Error('Commit notification missing')),3000))]);
+        await db.transaction().execute(trx=>service.setSpaceDefault(${JSON.stringify(space.id)},${JSON.stringify(owner.workspace_id)},initial.rootDefaultLocked,trx));
+        await listener.end();
+        const results = {transactionRollbackAndCommitNotification:true};
         for (const [label,ids] of Object.entries({leaf:${JSON.stringify([D.id])},batch:${JSON.stringify([A.id,B.id,C.id,D.id])}})) {
           for(let i=0;i<5;i++) await service.resolveMany(ids);
           times.length=0;
@@ -288,6 +452,12 @@ const record = message => console.log('PASS '+message);
     const measurements = execFileSync('docker',['exec','-w','/app/apps/server','docmost-local-docmost-1','node','-e',benchmarkCode],{encoding:'utf8'});
     fs.writeFileSync(path.join(output,'query-cost.json'),measurements);
     console.log('QUERY_COST '+measurements.trim());
+  } catch (error) {
+    console.error('VALIDATION_FAILURE',error);
+    for (const [i,tab] of browser.contexts().flatMap(ctx=>ctx.pages()).entries()) {
+      await tab.screenshot({path:path.join(output,`failure-${i}.png`)}).catch(()=>{});
+    }
+    throw error;
   } finally {
     await browser.close();
     // All cleanup is restricted to rows created by this run.
@@ -298,9 +468,14 @@ const record = message => console.log('PASS '+message);
       await new Promise(r=>setTimeout(r,11000));
       sql(`delete from pages where id in (${ids.map(id=>`'${id}'`).join(',')})`);
     }
+    if (temporarySpaces.length) sql(`delete from spaces where id in (${temporarySpaces.map(id=>`'${id}'`).join(',')})`);
     if (temporaryUsers.length) sql(`delete from users where id in (${temporaryUsers.map(id=>`'${id}'`).join(',')})`);
     const after = sql(`select md5(string_agg(id::text || coalesce(title,'') || coalesce(content::text,'') || coalesce(is_locked::text,'inherit'), '' order by id)) from pages where id in (${originalIds.map(id=>`'${id}'`).join(',')})`);
+    if (after!==originalSnapshot) fs.writeFileSync(path.join(output,'original-page-changes.json'),JSON.stringify({before:originalFingerprints,after:pageFingerprints()},null,2));
     assert.equal(after,originalSnapshot,'Original documents must be unchanged');
-    record('temporary pages/accounts removed; original documents unchanged');
+    assert.equal(sql("select md5(string_agg(id::text || coalesce(settings::text,''), '' order by id)) from spaces"),originalSpaceState);
+    assert.equal(sql("select md5(string_agg(id::text || role, '' order by id)) from space_members"),originalMemberships);
+    assert.equal(sql(`select count(*) from spaces where id in (${temporarySpaces.map(id=>`'${id}'`).join(',')})`),'0');
+    record('temporary spaces/pages/accounts removed; original documents unchanged');
   }
 })().catch(error=>{console.error(error);process.exitCode=1;});

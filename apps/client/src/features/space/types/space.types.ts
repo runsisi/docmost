@@ -14,6 +14,7 @@ export interface ISpaceCommentsSettings {
 }
 
 export interface ISpaceSettings {
+  pageProtection?: { rootDefaultLocked?: boolean; version?: number };
   sharing?: ISpaceSharingSettings;
   comments?: ISpaceCommentsSettings;
 }
@@ -35,6 +36,7 @@ export interface ISpace {
   membership?: IMembership;
   settings?: ISpaceSettings;
   // for updates
+  rootDefaultLocked?: boolean;
   disablePublicSharing?: boolean;
   allowViewerComments?: boolean;
 }

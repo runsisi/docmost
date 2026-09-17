@@ -1509,5 +1509,11 @@
   "Local recovery copies": "本地恢复副本",
   "Protection changed. Unconfirmed edits were saved locally and will not be replayed. Copy or export them before discarding.": "保护状态已变化。未确认的修改已保存在本地，不会自动提交。请先复制或导出，再丢弃副本。",
   "Locked": "已锁定",
-  "Unable to save title. A local recovery copy was retained.": "标题保存失败，已保留本地恢复副本。"
+  "Unable to save title. A local recovery copy was retained.": "标题保存失败，已保留本地恢复副本。",
+  "Lock root pages by default": "根页面默认锁定",
+  "Root pages without an explicit protection setting and their inheriting descendants follow this setting. Explicitly locked or unlocked pages are unaffected.": "未单独设置保护状态的根页面及其继承子页面遵循此设置。独立锁定或解锁的页面不受影响。",
+  "Failed to change space page protection": "修改空间页面保护设置失败",
+  "Use space default": "使用空间默认设置",
+  "Space default: locked": "空间默认：锁定",
+  "Space default: unlocked": "空间默认：解锁"
 }

@@ -75,6 +75,10 @@ export function SpaceSidebar() {
 
   const spaceRules = space?.membership?.permissions;
   const spaceAbility = useSpaceAbility(spaceRules);
+  const canManageSettings = spaceAbility.can(
+    SpaceCaslAction.Manage,
+    SpaceCaslSubject.Settings,
+  );
   const { handleCreate } = useTreeMutation(space?.id ?? "");
 
   if (!space) {
@@ -147,16 +151,18 @@ export function SpaceSidebar() {
               </div>
             </UnstyledButton>
 
-            <UnstyledButton className={classes.menu} onClick={openSettings}>
-              <div className={classes.menuItemInner}>
-                <IconSettings
-                  size={18}
-                  className={classes.menuItemIcon}
-                  stroke={2}
-                />
-                <span>{t("Space settings")}</span>
-              </div>
-            </UnstyledButton>
+            {canManageSettings && (
+              <UnstyledButton className={classes.menu} onClick={openSettings}>
+                <div className={classes.menuItemInner}>
+                  <IconSettings
+                    size={18}
+                    className={classes.menuItemIcon}
+                    stroke={2}
+                  />
+                  <span>{t("Space settings")}</span>
+                </div>
+              </UnstyledButton>
+            )}
 
             {spaceAbility.can(
               SpaceCaslAction.Manage,
@@ -193,6 +199,7 @@ export function SpaceSidebar() {
             <Group gap="xs">
               <SpaceMenu
                 spaceId={space.id}
+                canManageSettings={canManageSettings}
                 canManagePages={spaceAbility.can(
                   SpaceCaslAction.Manage,
                   SpaceCaslSubject.Page,
@@ -241,11 +248,13 @@ export function SpaceSidebar() {
 
 interface SpaceMenuProps {
   spaceId: string;
+  canManageSettings: boolean;
   canManagePages: boolean;
   onSpaceSettings: () => void;
 }
 function SpaceMenu({
   spaceId,
+  canManageSettings,
   canManagePages,
   onSpaceSettings,
 }: SpaceMenuProps) {
@@ -371,12 +380,14 @@ function SpaceMenu({
 
               <Menu.Divider />
 
-              <Menu.Item
-                onClick={onSpaceSettings}
-                leftSection={<IconSettings size={16} />}
-              >
-                {t("Space settings")}
-              </Menu.Item>
+              {canManageSettings && (
+                <Menu.Item
+                  onClick={onSpaceSettings}
+                  leftSection={<IconSettings size={16} />}
+                >
+                  {t("Space settings")}
+                </Menu.Item>
+              )}
 
               <Menu.Item
                 component={Link}

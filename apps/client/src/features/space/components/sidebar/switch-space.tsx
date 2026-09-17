@@ -2,17 +2,14 @@ import classes from "./switch-space.module.css";
 import { useNavigate } from "react-router-dom";
 import { SpaceSelect } from "./space-select";
 import { getSpaceUrl } from "@/lib/config";
-import { Button, Popover, Text, Tooltip } from "@mantine/core";
-import {
-  IconChevronDown,
-  IconChevronUp,
-  IconWorld,
-} from "@tabler/icons-react";
+import { Button, Group, Popover, Text, Tooltip } from "@mantine/core";
+import { IconChevronDown, IconChevronUp, IconWorld } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import { CustomAvatar } from "@/components/ui/custom-avatar.tsx";
 import { AvatarIconType } from "@/features/attachments/types/attachment.types.ts";
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { useGetSpacesQuery } from "@/features/space/queries/space-query.ts";
 
 interface SwitchSpaceProps {
   spaceName: string;
@@ -30,6 +27,7 @@ export function SwitchSpace({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [opened, { close, toggle }] = useDisclosure(false);
+  const { data: spaces, isSuccess } = useGetSpacesQuery({ limit: 20 });
 
   const handleSelect = (value: string) => {
     if (value) {
@@ -37,6 +35,39 @@ export function SwitchSpace({
       close();
     }
   };
+
+  const spaceLabel = (
+    <>
+      <CustomAvatar
+        name={spaceName}
+        avatarUrl={spaceIcon}
+        type={AvatarIconType.SPACE_ICON}
+        color="initials"
+        variant="filled"
+        size={20}
+      />
+      <Text className={classes.spaceName} size="md" fw={500} lineClamp={1}>
+        {spaceName}
+      </Text>
+      {isPublished && (
+        <Tooltip label={t("This space is public")}>
+          <IconWorld
+            size={14}
+            aria-label={t("This space is public")}
+            style={{ flexShrink: 0 }}
+          />
+        </Tooltip>
+      )}
+    </>
+  );
+
+  if (isSuccess && spaces.items.length === 1 && !spaces.meta.hasNextPage) {
+    return (
+      <Group gap={0} wrap="nowrap" px="md" h={36} w="100%">
+        {spaceLabel}
+      </Group>
+    );
+  }
 
   return (
     <Popover
@@ -54,31 +85,13 @@ export function SwitchSpace({
           variant="subtle"
           fullWidth
           justify="space-between"
-          rightSection={opened ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />}
+          rightSection={
+            opened ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />
+          }
           color="gray"
           onClick={toggle}
         >
-          <CustomAvatar
-            name={spaceName}
-            avatarUrl={spaceIcon}
-            type={AvatarIconType.SPACE_ICON}
-            color="initials"
-            variant="filled"
-            size={20}
-          />
-          <Text className={classes.spaceName} size="md" fw={500} lineClamp={1}>
-            {spaceName}
-          </Text>
-
-          {isPublished && (
-            <Tooltip label={t("This space is public")}>
-              <IconWorld
-                size={14}
-                aria-label={t("This space is public")}
-                style={{ flexShrink: 0 }}
-              />
-            </Tooltip>
-          )}
+          {spaceLabel}
         </Button>
       </Popover.Target>
       <Popover.Dropdown>

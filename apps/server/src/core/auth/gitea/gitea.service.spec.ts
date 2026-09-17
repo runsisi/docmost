@@ -130,6 +130,96 @@ describe('Gitea login transactions', () => {
     expect(sessions.createSessionAndToken).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the signed ID token email verification when Gitea omits it from UserInfo', async () => {
+    await service.start(workspace, req, res);
+    (oidc.authorizationCodeGrant as jest.Mock).mockResolvedValue({
+      access_token: 'token',
+      claims: () => ({
+        sub: 'external-user',
+        email: 'USER@example.com',
+        email_verified: true,
+      }),
+    });
+    (oidc.fetchUserInfo as jest.Mock).mockResolvedValue({
+      sub: 'external-user',
+      email: 'user@example.com',
+    });
+    await service.callback(workspace, req, res);
+    expect(service.resolveUser).toHaveBeenCalledWith(
+      workspace,
+      'https://gitea.example',
+      expect.objectContaining({
+        email: 'user@example.com',
+        email_verified: true,
+      }),
+      undefined,
+    );
+  });
+
+  it('preserves an explicitly unverified UserInfo email', async () => {
+    await service.start(workspace, req, res);
+    (oidc.authorizationCodeGrant as jest.Mock).mockResolvedValue({
+      access_token: 'token',
+      claims: () => ({
+        sub: 'external-user',
+        email: 'user@example.com',
+        email_verified: true,
+      }),
+    });
+    (oidc.fetchUserInfo as jest.Mock).mockResolvedValue({
+      sub: 'external-user',
+      email: 'user@example.com',
+      email_verified: false,
+    });
+    await service.callback(workspace, req, res);
+    expect(service.resolveUser).toHaveBeenCalledWith(
+      workspace,
+      'https://gitea.example',
+      expect.objectContaining({ email_verified: false }),
+      undefined,
+    );
+  });
+
+  it('does not transfer verification to a different UserInfo email', async () => {
+    await service.start(workspace, req, res);
+    (oidc.authorizationCodeGrant as jest.Mock).mockResolvedValue({
+      access_token: 'token',
+      claims: () => ({
+        sub: 'external-user',
+        email: 'other@example.com',
+        email_verified: true,
+      }),
+    });
+    (oidc.fetchUserInfo as jest.Mock).mockResolvedValue({
+      sub: 'external-user',
+      email: 'user@example.com',
+    });
+    await service.callback(workspace, req, res);
+    expect(
+      (service.resolveUser as jest.Mock).mock.calls[0][2].email_verified,
+    ).toBeUndefined();
+  });
+
+  it('does not treat an unverified ID token email as verified', async () => {
+    await service.start(workspace, req, res);
+    (oidc.authorizationCodeGrant as jest.Mock).mockResolvedValue({
+      access_token: 'token',
+      claims: () => ({
+        sub: 'external-user',
+        email: 'user@example.com',
+        email_verified: false,
+      }),
+    });
+    (oidc.fetchUserInfo as jest.Mock).mockResolvedValue({
+      sub: 'external-user',
+      email: 'user@example.com',
+    });
+    await service.callback(workspace, req, res);
+    expect(
+      (service.resolveUser as jest.Mock).mock.calls[0][2].email_verified,
+    ).not.toBe(true);
+  });
+
   it('rejects missing browser cookies without exchanging the code', async () => {
     await expect(service.callback(workspace, req, res)).rejects.toThrow(
       'expired',

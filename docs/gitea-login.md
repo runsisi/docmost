@@ -44,6 +44,8 @@ discovery、token、JWKS 和 UserInfo 接口，浏览器必须能访问 Gitea �
 
 登录请求使用 `openid email profile`，验证 `state`、`nonce`、PKCE S256、ID token 签名以及
 UserInfo 的 subject。登录上下文保存在 Redis 中，有效期为十分钟，回调时原子取出并删除。
+Gitea 在 UserInfo 中缺少 `email_verified` 时，使用已验证签名的 ID token 中同一邮箱的
+布尔验证状态；UserInfo 明确返回 `false` 或两处邮箱不一致时，不提升邮箱验证状态。
 浏览器仅保存 HttpOnly、SameSite=Lax 的随机流程 cookie。
 绑定还要求发起绑定的本地用户会话仍然有效，且回调浏览器持有同一会话 cookie。
 

@@ -182,6 +182,15 @@ export class GiteaService {
         claims.sub,
       );
       profile = profileSchema.parse(info);
+      // Gitea exposes email_verified in the ID token but may omit it from UserInfo.
+      if (
+        profile.email_verified === undefined &&
+        typeof claims.email === 'string' &&
+        claims.email.toLowerCase() === profile.email &&
+        typeof claims.email_verified === 'boolean'
+      ) {
+        profile.email_verified = claims.email_verified;
+      }
     } catch {
       throw new BadRequestException(
         'Gitea authentication failed. Please try again.',

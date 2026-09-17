@@ -1,4 +1,5 @@
 import { Logger, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { CollaborationProtectionService } from './services/collaboration-protection.service';
 import { AuthenticationExtension } from './extensions/authentication.extension';
 import { PersistenceExtension } from './extensions/persistence.extension';
 import { CollaborationGateway } from './collaboration.gateway';
@@ -15,12 +16,14 @@ import { WatcherModule } from '../core/watcher/watcher.module';
 import { TransclusionService } from '../core/page/transclusion/transclusion.service';
 import { TransclusionModule } from '../core/page/transclusion/transclusion.module';
 import { StorageModule } from '../integrations/storage/storage.module';
+import { PageAccessModule } from '../core/page/page-access/page-access.module';
 import { EnvironmentModule } from '../integrations/environment/environment.module';
 
 @Module({
   providers: [
     CollaborationGateway,
     AuthenticationExtension,
+    CollaborationProtectionService,
     PersistenceExtension,
     LoggerExtension,
     HistoryProcessor,
@@ -30,6 +33,7 @@ import { EnvironmentModule } from '../integrations/environment/environment.modul
   ],
   exports: [CollaborationGateway],
   imports: [
+    PageAccessModule,
     TokenModule,
     WatcherModule,
     StorageModule.forRootAsync({

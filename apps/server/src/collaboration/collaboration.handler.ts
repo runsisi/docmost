@@ -9,6 +9,8 @@ import { setYjsMark, updateYjsMarkAttribute, YjsSelection } from './yjs.util';
 import * as Y from 'yjs';
 import { User } from '@docmost/db/types/entity.types';
 
+import { CollaborationProtectionService } from './services/collaboration-protection.service';
+
 export type CollabEventHandlers = ReturnType<
   CollaborationHandler['getHandlers']
 >;
@@ -17,7 +19,7 @@ export type CollabEventHandlers = ReturnType<
 export class CollaborationHandler {
   private readonly logger = new Logger(CollaborationHandler.name);
 
-  constructor() {}
+  constructor(private readonly protection: CollaborationProtectionService) {}
 
   getHandlers(hocuspocus: Hocuspocus) {
     return {
@@ -84,6 +86,7 @@ export class CollaborationHandler {
         },
       ) => {
         const { prosemirrorJson, operation, user } = payload;
+        await this.protection.validateContentUpdate(documentName, user);
         this.logger.debug('Updating page content via yjs', documentName);
         await this.withYdocConnection(
           hocuspocus,

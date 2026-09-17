@@ -1493,5 +1493,21 @@
   "This Gitea account is already linked to another user.": "This Gitea account is already linked to another user.",
   "Verify your email in Gitea before signing up.": "Verify your email in Gitea before signing up.",
   "Use your existing login method to complete MFA.": "Use your existing login method to complete MFA.",
-  "Gitea login is temporarily unavailable. Please try again.": "Gitea login is temporarily unavailable. Please try again."
+  "Gitea login is temporarily unavailable. Please try again.": "Gitea login is temporarily unavailable. Please try again.",
+  "Protection changed. Review the current state and try again.": "Protection changed. Review the current state and try again.",
+  "Failed to change page protection": "Failed to change page protection",
+  "This page is explicitly locked": "This page is explicitly locked",
+  "This page is explicitly unlocked": "This page is explicitly unlocked",
+  "Inherited: locked": "Inherited: locked",
+  "Inherited: unlocked": "Inherited: unlocked",
+  "Inherit parent · root pages are unlocked": "Inherit parent · root pages are unlocked",
+  "Unlock page": "Unlock page",
+  "Lock page": "Lock page",
+  "Page protection": "Page protection",
+  "Inherit parent page": "Inherit parent page",
+  "Protection prevents content changes. Comments and page organization remain available.": "Protection prevents content changes. Comments and page organization remain available.",
+  "Local recovery copies": "Local recovery copies",
+  "Protection changed. Unconfirmed edits were saved locally and will not be replayed. Copy or export them before discarding.": "Protection changed. Unconfirmed edits were saved locally and will not be replayed. Copy or export them before discarding.",
+  "Locked": "Locked",
+  "Unable to save title. A local recovery copy was retained.": "Unable to save title. A local recovery copy was retained."
 }

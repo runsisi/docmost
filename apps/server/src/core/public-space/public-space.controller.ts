@@ -8,6 +8,7 @@ import {
   NotFoundException,
   Post,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { AuthWorkspace } from '../../common/decorators/auth-workspace.decorator';
@@ -41,6 +42,9 @@ import { Feature, FeatureKey } from '../../common/features';
 
 const PUBLIC_SPACE_FEATURES: FeatureKey[] = [Feature.PUBLIC_SPACE_APPEARANCE];
 
+import { PageProtectionInterceptor } from '../page/protection/page-protection.interceptor';
+
+@UseInterceptors(PageProtectionInterceptor)
 @UseGuards(JwtAuthGuard)
 @Controller('public-spaces')
 export class PublicSpaceController {

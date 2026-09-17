@@ -66,7 +66,7 @@ export function PageDetailsAside() {
 
         <LabelsSection
           pageId={page.id}
-          canEdit={page.permissions?.canEdit ?? false}
+          canEdit={page.permissions?.canModifyContent ?? false}
         />
       </Stack>
 

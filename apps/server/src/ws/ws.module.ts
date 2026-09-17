@@ -1,3 +1,4 @@
+import { PageProtectionBridge } from './page-protection.bridge';
 import { Global, Module } from '@nestjs/common';
 import { WsGateway } from './ws.gateway';
 import { WsService } from './ws.service';
@@ -8,7 +9,13 @@ import { BaseRealtimeBridge } from './base-realtime.bridge';
 @Global()
 @Module({
   imports: [TokenModule],
-  providers: [WsGateway, WsService, WsTreeService, BaseRealtimeBridge],
+  providers: [
+    WsGateway,
+    WsService,
+    WsTreeService,
+    BaseRealtimeBridge,
+    PageProtectionBridge,
+  ],
   exports: [WsGateway, WsService, WsTreeService],
 })
 export class WsModule {}

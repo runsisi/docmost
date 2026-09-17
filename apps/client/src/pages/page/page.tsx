@@ -60,6 +60,7 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
 
   const hasBases = useHasFeature(Feature.BASES);
   const canEdit = !page?.deletedAt && (page?.permissions?.canEdit ?? false);
+  const canModifyContent = canEdit && page?.permissions?.canModifyContent === true;
   const canComment =
     canEdit ||
     (space?.settings?.comments?.allowViewerComments === true);
@@ -134,7 +135,7 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
           >
             <BaseView
               pageId={page.id}
-              editable={hasBases && canEdit}
+              editable={hasBases && canModifyContent}
               titleSlot={
                 <div
                   className="base-page-title"
@@ -145,7 +146,7 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
                     slugId={page.slugId}
                     title={page.title}
                     spaceSlug={page.space?.slug ?? ""}
-                    editable={hasBases && canEdit}
+                    editable={hasBases && canModifyContent}
                     isBase
                   />
                 </div>
@@ -174,7 +175,7 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
           content={page.content}
           slugId={page.slugId}
           spaceSlug={page?.space?.slug}
-          editable={canEdit}
+          editable={canModifyContent}
           creator={page.creator}
           contributors={page.contributors}
           canComment={canComment}

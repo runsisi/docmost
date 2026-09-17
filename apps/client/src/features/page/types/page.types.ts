@@ -12,6 +12,14 @@ export interface IPage {
   spaceId: string;
   workspaceId: string;
   isLocked: boolean;
+  protection?: {
+    mode: "inherit" | "locked" | "unlocked";
+    isLocked: boolean;
+    inherited: boolean;
+    sourcePageId: string | null;
+    sourceTitle: string | null;
+    version: string;
+  };
   isBase: boolean;
   lastUpdatedById: string;
   createdAt: Date;
@@ -27,6 +35,8 @@ export interface IPage {
   space: Partial<ISpace>;
   permissions?: {
     canEdit: boolean;
+    canModifyContent: boolean;
+    canManageProtection: boolean;
     hasRestriction: boolean;
   };
 }
@@ -80,6 +90,7 @@ export interface SidebarPagesParams {
 }
 
 export interface IPageInput {
+  protectionVersion?: string;
   pageId: string;
   title: string;
   parentPageId: string;

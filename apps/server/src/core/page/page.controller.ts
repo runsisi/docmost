@@ -9,6 +9,7 @@ import {
   NotFoundException,
   Post,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { PageService } from './services/page.service';
 import { BacklinkService } from './services/backlink.service';
@@ -54,6 +55,9 @@ import {
 } from '../../integrations/audit/audit.service';
 import { getPageTitle } from '../../common/helpers';
 
+import { PageProtectionInterceptor } from './protection/page-protection.interceptor';
+
+@UseInterceptors(PageProtectionInterceptor)
 @UseGuards(JwtAuthGuard)
 @Controller('pages')
 export class PageController {
@@ -134,7 +138,7 @@ export class PageController {
       throw new NotFoundException('Page not found');
     }
 
-    await this.pageAccessService.validateCanEdit(page, user);
+    await this.pageAccessService.validateCanModifyContent(page, user);
 
     return this.labelService.addLabelsToPage(
       page.id,
@@ -154,7 +158,7 @@ export class PageController {
       throw new NotFoundException('Page not found');
     }
 
-    await this.pageAccessService.validateCanEdit(page, user);
+    await this.pageAccessService.validateCanModifyContent(page, user);
 
     await this.labelService.removeLabelFromPage(
       page.id,
@@ -280,9 +284,10 @@ export class PageController {
       throw new NotFoundException('Page not found');
     }
 
-    const { hasRestriction } = await this.pageAccessService.validateCanEdit(
+    const { hasRestriction } = await this.pageAccessService.validateCanModifyContent(
       page,
       user,
+      updatePageDto.protectionVersion,
     );
 
     const updatedPage = await this.pageService.update(

@@ -57,6 +57,8 @@ import {
   useUnwatchPageMutation,
 } from "@/features/page/queries/watcher-query";
 
+import { PageProtection } from "./page-protection";
+
 interface PageHeaderMenuProps {
   readOnly?: boolean;
 }
@@ -98,8 +100,9 @@ export default function PageHeaderMenu({ readOnly }: PageHeaderMenuProps) {
   return (
     <>
       <ConnectionWarning />
+      {page && <PageProtection page={page} />}
 
-      {!readOnly && !page?.isBase && <PageEditModeToggle size="xs" />}
+      {!readOnly && !page?.isLocked && !page?.isBase && <PageEditModeToggle size="xs" />}
 
       <PageShareModal readOnly={readOnly} />
 

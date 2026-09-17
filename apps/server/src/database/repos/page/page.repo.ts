@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectKysely } from 'nestjs-kysely';
 import { KyselyDB, KyselyTransaction } from '../../types/kysely.types';
 import { dbOrTx, executeTx } from '../../utils';
@@ -259,21 +259,32 @@ export class PageRepo {
   }
 
   async restorePage(pageId: string, workspaceId: string): Promise<void> {
-    // First, check if the page being restored has a deleted parent
-    const pageToRestore = await this.db
-      .selectFrom('pages')
-      .select(['id', 'parentPageId'])
-      .where('id', '=', pageId)
-      .executeTakeFirst();
+    const pageIds = await executeTx(this.db, async (trx) => {
+      const page = await this.findById(pageId, { trx });
+      if (!page) throw new ConflictException('Page no longer exists');
+      await this.lockPageHierarchySpaces([page.spaceId], trx);
+      return this.restorePageInTransaction(pageId, page.spaceId, trx);
+    });
+    this.eventEmitter.emit(EventName.PAGE_RESTORED, { pageIds, workspaceId });
+  }
 
-    if (!pageToRestore) {
-      return;
+  private async restorePageInTransaction(
+    pageId: string, spaceId: string, trx: KyselyTransaction,
+  ) {
+    // First, check if the page being restored has a deleted parent
+    const pageToRestore = await trx
+      .selectFrom('pages')
+      .select(['id', 'parentPageId', 'spaceId'])
+      .where('id', '=', pageId)
+      .executeTakeFirstOrThrow();
+    if (pageToRestore.spaceId !== spaceId) {
+      throw new ConflictException('Page moved');
     }
 
     // Check if the parent is also deleted
     let shouldDetachFromParent = false;
     if (pageToRestore.parentPageId) {
-      const parent = await this.db
+      const parent = await trx
         .selectFrom('pages')
         .select(['id', 'deletedAt'])
         .where('id', '=', pageToRestore.parentPageId)
@@ -284,7 +295,7 @@ export class PageRepo {
     }
 
     // Find all descendants to restore
-    const pages = await this.db
+    const pages = await trx
       .withRecursive('page_descendants', (db) =>
         db
           .selectFrom('pages')
@@ -304,7 +315,7 @@ export class PageRepo {
     const pageIds = pages.map((p) => p.id);
 
     // Restore all pages, but only detach the root page if its parent is deleted
-    await this.db
+    await trx
       .updateTable('pages')
       .set({ deletedById: null, deletedAt: null })
       .where('id', 'in', pageIds)
@@ -312,16 +323,13 @@ export class PageRepo {
 
     // If we need to detach the restored page from its deleted parent
     if (shouldDetachFromParent) {
-      await this.db
+      await trx
         .updateTable('pages')
         .set({ parentPageId: null })
         .where('id', '=', pageId)
         .execute();
     }
-    this.eventEmitter.emit(EventName.PAGE_RESTORED, {
-      pageIds: pageIds,
-      workspaceId: workspaceId,
-    });
+    return pageIds;
   }
 
   async getRecentPagesInSpace(spaceId: string, pagination: PaginationOptions) {
@@ -516,6 +524,7 @@ export class PageRepo {
             'slugId',
             'title',
             'icon',
+            'isLocked',
             'position',
             'parentPageId',
             'spaceId',
@@ -534,6 +543,7 @@ export class PageRepo {
                 'p.slugId',
                 'p.title',
                 'p.icon',
+                'p.isLocked',
                 'p.position',
                 'p.parentPageId',
                 'p.spaceId',

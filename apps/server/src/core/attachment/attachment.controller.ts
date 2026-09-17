@@ -128,7 +128,7 @@ export class AttachmentController {
       throw new NotFoundException('Page not found');
     }
 
-    await this.pageAccessService.validateCanEdit(page, user);
+    await this.pageAccessService.validateCanModifyContent(page, user);
 
     const spaceId = page.spaceId;
 

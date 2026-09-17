@@ -1,4 +1,4 @@
-import { Extension, onAuthenticatePayload } from '@hocuspocus/server';
+import { beforeSyncPayload, Extension, onAuthenticatePayload } from '@hocuspocus/server';
 import {
   Injectable,
   Logger,
@@ -16,11 +16,14 @@ import { isUserDisabled } from '../../common/helpers';
 import { getPageId } from '../collaboration.util';
 import { JwtCollabPayload, JwtType } from '../../core/auth/dto/jwt-payload';
 
+import { CollaborationProtectionService } from '../services/collaboration-protection.service';
+
 @Injectable()
 export class AuthenticationExtension implements Extension {
   private readonly logger = new Logger(AuthenticationExtension.name);
 
   constructor(
+    private readonly protection: CollaborationProtectionService,
     private tokenService: TokenService,
     private userRepo: UserRepo,
     private pageRepo: PageRepo,
@@ -29,7 +32,8 @@ export class AuthenticationExtension implements Extension {
   ) {}
 
   async onAuthenticate(data: onAuthenticatePayload) {
-    const { documentName, token } = data;
+    const { documentName } = data;
+    const { token, protectionVersion } = this.protection.credentials(data.token);
     const pageId = getPageId(documentName);
 
     let jwtPayload: JwtCollabPayload;
@@ -54,7 +58,7 @@ export class AuthenticationExtension implements Extension {
     }
 
     const page = await this.pageRepo.findById(pageId);
-    if (!page) {
+    if (!page || page.workspaceId !== workspaceId) {
       this.logger.debug(`Page not found: ${pageId}`);
       throw new NotFoundException('Page not found');
     }
@@ -101,10 +105,18 @@ export class AuthenticationExtension implements Extension {
       data.connectionConfig.readOnly = true;
     }
 
+    await this.protection.authenticate(
+      page.id, protectionVersion, data.connectionConfig,
+    );
     this.logger.debug(`Authenticated user ${user.id} on page ${pageId}`);
 
     return {
       user,
+      protectionVersion,
     };
+  }
+
+  beforeSync(data: beforeSyncPayload) {
+    return this.protection.beforeSync(data);
   }
 }

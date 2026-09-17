@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PageService } from './services/page.service';
+import { PageProtectionController } from './protection/page-protection.controller';
 import { PageController } from './page.controller';
 import { PageHistoryService } from './services/page-history.service';
 import { TrashCleanupService } from './services/trash-cleanup.service';
@@ -11,7 +12,7 @@ import { TransclusionModule } from './transclusion/transclusion.module';
 import { LabelModule } from '../label/label.module';
 
 @Module({
-  controllers: [PageController],
+  controllers: [PageController, PageProtectionController],
   providers: [
     PageService,
     PageHistoryService,

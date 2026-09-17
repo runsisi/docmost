@@ -49,6 +49,8 @@ export function usePageQuery(
     queryFn: () => getPageById(pageInput),
     enabled: !!pageInput.pageId,
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
   });
 
   useEffect(() => {

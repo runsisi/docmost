@@ -29,6 +29,8 @@ import { PageEditMode } from "@/features/user/types/user.types.ts";
 import { searchSpotlight } from "@/features/search/constants.ts";
 import { platformModifierKey } from "@/lib";
 
+import { useTitleProtection } from "./use-title-protection";
+
 export interface TitleEditorProps {
   pageId: string;
   slugId: string;
@@ -54,6 +56,7 @@ export function TitleEditor({
   const emit = useQueryEmit();
   const navigate = useNavigate();
   const [activePageId, setActivePageId] = useState(pageId);
+  const protection = useTitleProtection(pageId, slugId);
   const currentPageEditMode = useAtomValue(currentPageEditModeAtom);
 
   const titleEditor = useEditor({
@@ -81,7 +84,8 @@ export function TitleEditor({
         setActivePageId(pageId);
       }
     },
-    onUpdate({ editor }) {
+    onUpdate({ editor, transaction }) {
+      if (!protection.track(editor, transaction)) return;
       debounceUpdate();
     },
     editable: editable,
@@ -132,10 +136,14 @@ export function TitleEditor({
       return;
     }
 
+    const pending = protection.pending.current;
+    if (!pending) return;
     updateTitlePageMutationAsync({
       pageId: pageId,
-      title: titleEditor.getText(),
+      title: pending.title,
+      protectionVersion: pending.version,
     }).then((page) => {
+      protection.acknowledge(pending);
       const event: UpdateEvent = {
         operation: "updateOne",
         spaceId: page.spaceId,
@@ -155,7 +163,7 @@ export function TitleEditor({
 
       localEmitter.emit("message", event);
       emit(event);
-    });
+    }).catch(protection.onError);
   }, [pageId, title, titleEditor]);
 
   const debounceUpdate = useDebouncedCallback(saveTitle, 500);
@@ -166,9 +174,9 @@ export function TitleEditor({
       !titleEditor.isDestroyed &&
       title !== titleEditor.getText()
     ) {
-      titleEditor.commands.setContent(title);
+      titleEditor.commands.setContent(title, { emitUpdate: false });
     }
-  }, [pageId, title, titleEditor]);
+  }, [pageId, title, titleEditor, protection.version]);
 
   useEffect(() => {
     setTimeout(() => {

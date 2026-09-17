@@ -1,3 +1,4 @@
+import { IconLock } from "@tabler/icons-react";
 import { useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAtom } from "jotai";
@@ -171,13 +172,14 @@ export function SpaceTreeRow({
               <IconFileDescription size="18" />
             )
           }
-          readOnly={!canEdit}
+          readOnly={!canEdit || node.isLocked}
           removeEmojiAction={handleRemoveEmoji}
           actionIconProps={{ tabIndex: -1 }}
         />
       </div>
 
       <span className={classes.text}>{getPageTitle(node.name, node.isBase, t)}</span>
+      {node.isLocked && <IconLock size={14} aria-label={t("Locked")} />}
 
       <div className={classes.actions}>
         <NodeMenu node={node} canEdit={canEdit} />

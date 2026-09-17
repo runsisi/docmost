@@ -6,6 +6,7 @@ import {
   SpaceCaslAction,
   SpaceCaslSubject,
 } from '../../casl/interfaces/space-ability.type';
+import { PageProtectionService } from '../protection/page-protection.service';
 import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class PageAccessService {
     private readonly pagePermissionRepo: PagePermissionRepo,
     private readonly spaceAbility: SpaceAbilityFactory,
     private readonly spaceRepo: SpaceRepo,
+    private readonly protection: PageProtectionService,
   ) {}
 
   /**
@@ -23,6 +25,7 @@ export class PageAccessService {
    */
   async validateCanView(page: Page, user: User): Promise<void> {
     // TODO: cache by pageId and userId.
+    if (page.workspaceId !== user.workspaceId) throw new ForbiddenException();
     const ability = await this.spaceAbility.createForUser(user, page.spaceId);
 
     // User must be at least a space member
@@ -47,6 +50,7 @@ export class PageAccessService {
     page: Page,
     user: User,
   ): Promise<{ canEdit: boolean; hasRestriction: boolean }> {
+    if (page.workspaceId !== user.workspaceId) throw new ForbiddenException();
     const ability = await this.spaceAbility.createForUser(user, page.spaceId);
 
     if (ability.cannot(SpaceCaslAction.Read, SpaceCaslSubject.Page)) {
@@ -77,6 +81,7 @@ export class PageAccessService {
     page: Page,
     user: User,
   ): Promise<{ hasRestriction: boolean }> {
+    if (page.workspaceId !== user.workspaceId) throw new ForbiddenException();
     const ability = await this.spaceAbility.createForUser(user, page.spaceId);
 
     // User must be at least a space member
@@ -100,6 +105,13 @@ export class PageAccessService {
     }
 
     return { hasRestriction: hasAnyRestriction };
+  }
+
+  async validateCanModifyContent(page: Page, user: User, version?: string) {
+    const permissions = await this.validateCanEdit(page, user);
+    if (page.deletedAt) throw new ForbiddenException('Page is deleted');
+    await this.protection.assertWritable(page.id, version);
+    return permissions;
   }
 
   async validateCanComment(

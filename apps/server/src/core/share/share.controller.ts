@@ -9,6 +9,7 @@ import {
   NotFoundException,
   Post,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { User, Workspace } from '@docmost/db/types/entity.types';
@@ -36,6 +37,9 @@ import {
   IAuditService,
 } from '../../integrations/audit/audit.service';
 
+import { PageProtectionInterceptor } from '../page/protection/page-protection.interceptor';
+
+@UseInterceptors(PageProtectionInterceptor)
 @UseGuards(JwtAuthGuard)
 @Controller('shares')
 export class ShareController {

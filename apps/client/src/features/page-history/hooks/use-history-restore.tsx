@@ -15,12 +15,10 @@ import {
   pageEditorAtom,
   titleEditorAtom,
 } from "@/features/editor/atoms/editor-atoms";
-import { useSpaceAbility } from "@/features/space/permissions/use-space-ability";
-import { useSpaceQuery } from "@/features/space/queries/space-query";
-import {
-  SpaceCaslAction,
-  SpaceCaslSubject,
-} from "@/features/space/permissions/permissions.type";
+import { usePageQuery } from "@/features/page/queries/page-query";
+import { queryClient } from "@/main";
+import { IPage } from "@/features/page/types/page.types";
+import { extractPageSlugId } from "@/lib";
 
 export function useHistoryRestore() {
   const { t } = useTranslation();
@@ -30,14 +28,9 @@ export function useHistoryRestore() {
   const mainEditorTitle = useAtomValue(titleEditorAtom);
   const setHistoryModalOpen = useSetAtom(historyAtoms);
 
-  const { spaceSlug } = useParams();
-  const { data: space } = useSpaceQuery(spaceSlug);
-  const spaceAbility = useSpaceAbility(space?.membership?.permissions);
-
-  const canRestore = spaceAbility.can(
-    SpaceCaslAction.Manage,
-    SpaceCaslSubject.Page,
-  );
+  const { pageSlug } = useParams();
+  const { data: page } = usePageQuery({ pageId: extractPageSlugId(pageSlug) });
+  const canRestore = page?.permissions?.canModifyContent === true;
 
   const handleRestore = useCallback(
     async (historyId: string) => {
@@ -53,6 +46,9 @@ export function useHistoryRestore() {
       }
 
       if (
+        !canRestore ||
+        queryClient.getQueryData<IPage>(["pages", page.id])?.protection.version !==
+          page.protection.version ||
         !mainEditor ||
         mainEditor.isDestroyed ||
         !mainEditorTitle ||
@@ -76,7 +72,7 @@ export function useHistoryRestore() {
       setHistoryModalOpen(false);
       notifications.show({ message: t("Successfully restored") });
     },
-    [mainEditor, mainEditorTitle, setHistoryModalOpen, t],
+    [mainEditor, mainEditorTitle, setHistoryModalOpen, t, canRestore, page],
   );
 
   const confirmRestore = useCallback(

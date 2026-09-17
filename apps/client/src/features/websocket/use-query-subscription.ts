@@ -14,9 +14,12 @@ import {
 import { RQ_KEY } from "../comment/queries/comment-query";
 import { IComment } from "@/features/comment/types/comment.types";
 
+import { usePageProtectionSubscription } from "@/features/page/hooks/use-page-protection-subscription";
+
 export const useQuerySubscription = () => {
   const queryClient = useQueryClient();
   const [socket] = useAtom(socketAtom);
+  usePageProtectionSubscription(socket);
 
   React.useEffect(() => {
     socket?.on("message", (event) => {

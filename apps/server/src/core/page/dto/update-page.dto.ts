@@ -1,11 +1,15 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreatePageDto, ContentFormat } from './create-page.dto';
-import { IsIn, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { IsIn, IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export type ContentOperation = 'append' | 'prepend' | 'replace';
 
 export class UpdatePageDto extends PartialType(CreatePageDto) {
+  @IsOptional()
+  @Matches(/^[a-f0-9]{32}$/)
+  protectionVersion?: string;
+
   @IsString()
   pageId: string;
 

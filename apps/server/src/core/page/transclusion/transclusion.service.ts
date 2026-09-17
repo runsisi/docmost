@@ -449,7 +449,7 @@ export class TransclusionService {
       throw new ForbiddenException();
     }
 
-    await this.pageAccessService.validateCanEdit(referencePage, user);
+    await this.pageAccessService.validateCanModifyContent(referencePage, user);
     await this.pageAccessService.validateCanView(sourcePage, user);
 
     const transclusion =

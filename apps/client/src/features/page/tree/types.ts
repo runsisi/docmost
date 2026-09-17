@@ -9,5 +9,6 @@ export type SpaceTreeNode = {
   hasChildren: boolean;
   isBase?: boolean;
   canEdit?: boolean;
+  isLocked?: boolean;
   children: SpaceTreeNode[];
 };

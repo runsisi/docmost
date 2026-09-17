@@ -14,7 +14,6 @@ import {
 } from "@hocuspocus/provider";
 import {
   HocuspocusProviderWebsocketComponent,
-  HocuspocusRoom,
   useHocuspocusEvent,
   useHocuspocusProvider,
 } from "@hocuspocus/provider-react";
@@ -89,6 +88,8 @@ import {
   releaseCollabSocket,
 } from "@/features/editor/collab-socket";
 
+import { PageRecovery, ProtectedRoom, useCollaborationProtection } from "./use-collaboration-protection";
+
 interface PageEditorProps {
   pageId: string;
   editable: boolean;
@@ -145,9 +146,10 @@ export default function PageEditor({
 
   return (
     <TransclusionLookupProvider>
+      <PageRecovery pageId={pageId} />
       {collabQuery?.token ? (
         <HocuspocusProviderWebsocketComponent websocketProvider={socket}>
-          <HocuspocusRoom
+          <ProtectedRoom
             name={`page.${pageId}`}
             token={collabQuery.token}
             flushDelay={500}
@@ -160,7 +162,7 @@ export default function PageEditor({
               content={content}
               canComment={canComment}
             />
-          </HocuspocusRoom>
+          </ProtectedRoom>
         </HocuspocusProviderWebsocketComponent>
       ) : (
         <StaticPageEditor content={content} ariaLabel={t("Page content")} />
@@ -179,6 +181,7 @@ function CollabPageEditor({
   const provider = useHocuspocusProvider();
   const isComponentMounted = useRef(false);
   const editorRef = useRef<Editor | null>(null);
+  const protection = useCollaborationProtection(editorRef);
 
   useEffect(() => {
     isComponentMounted.current = true;
@@ -212,7 +215,7 @@ function CollabPageEditor({
 
   useEffect(() => {
     const local = new IndexeddbPersistence(
-      provider.configuration.name,
+      protection.storageName,
       provider.document,
     );
     local.on("synced", () => setIsLocalSynced(true));
@@ -351,7 +354,8 @@ function CollabPageEditor({
           editorRef.current = editor;
         }
       },
-      onUpdate({ editor }) {
+      onUpdate({ editor, transaction }) {
+        if (!protection.onUpdate(editor, transaction)) return;
         if (editor.isEmpty) return;
         const editorJson = editor.getJSON();
         //update local page cache to reduce flickers
@@ -434,8 +438,8 @@ function CollabPageEditor({
   }, [yjsConnectionStatus, isSynced]);
   useEffect(() => {
     if (!editor) return;
-    editor.setEditable(editable && currentPageEditMode === PageEditMode.Edit);
-  }, [currentPageEditMode, editor, editable]);
+    editor.setEditable(editable && !protection.blocked && currentPageEditMode === PageEditMode.Edit);
+  }, [currentPageEditMode, editor, editable, protection.blocked]);
 
   const hasConnectedOnceRef = useRef(false);
   const [showStatic, setShowStatic] = useState(true);

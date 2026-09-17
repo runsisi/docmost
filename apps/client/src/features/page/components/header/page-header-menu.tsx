@@ -347,7 +347,7 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
             <Group px="sm" wrap="nowrap" style={{ cursor: "pointer" }}>
               <Tooltip
                 label={t("Edited by {{name}} {{time}}", {
-                  name: page.lastUpdatedBy.name,
+                  name: page.lastUpdatedBy?.name ?? "—",
                   time: pageUpdatedAt,
                 })}
                 position="left-start"

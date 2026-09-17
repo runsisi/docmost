@@ -1515,5 +1515,6 @@
   "Failed to change space page protection": "Failed to change space page protection",
   "Use space default": "Use space default",
   "Space default: locked": "Space default: locked",
-  "Space default: unlocked": "Space default: unlocked"
+  "Space default: unlocked": "Space default: unlocked",
+  "Last updated: {{name}}": "Last updated: {{name}}"
 }

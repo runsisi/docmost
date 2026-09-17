@@ -1515,5 +1515,6 @@
   "Failed to change space page protection": "修改空间页面保护设置失败",
   "Use space default": "使用空间默认设置",
   "Space default: locked": "空间默认：锁定",
-  "Space default: unlocked": "空间默认：解锁"
+  "Space default: unlocked": "空间默认：解锁",
+  "Last updated: {{name}}": "最后更新：{{name}}"
 }

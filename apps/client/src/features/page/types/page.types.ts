@@ -30,7 +30,7 @@ export interface IPage {
   hasChildren: boolean;
   canEdit?: boolean;
   creator: ICreator;
-  lastUpdatedBy: ILastUpdatedBy;
+  lastUpdatedBy: ILastUpdatedBy | null;
   deletedBy: IDeletedBy;
   contributors?: IContributor[];
   space: Partial<ISpace>;

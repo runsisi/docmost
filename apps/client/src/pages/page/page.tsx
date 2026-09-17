@@ -177,6 +177,8 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
           spaceSlug={page?.space?.slug}
           editable={canModifyContent}
           creator={page.creator}
+          lastUpdatedBy={page.lastUpdatedBy}
+          updatedAt={page.updatedAt}
           contributors={page.contributors}
           canComment={canComment}
         />

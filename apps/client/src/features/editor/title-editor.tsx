@@ -151,6 +151,8 @@ export function TitleEditor({
         id: page.id,
         payload: {
           title: page.title,
+          lastUpdatedBy: page.lastUpdatedBy,
+          updatedAt: page.updatedAt,
           slugId: page.slugId,
           parentPageId: page.parentPageId,
           icon: page.icon,

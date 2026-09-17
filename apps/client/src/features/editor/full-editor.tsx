@@ -1,5 +1,6 @@
 import classes from "@/features/editor/styles/editor.module.css";
 import React, { useEffect } from "react";
+import { format } from "date-fns";
 import { TitleEditor } from "@/features/editor/title-editor";
 import PageEditor from "@/features/editor/page-editor";
 import {
@@ -50,6 +51,8 @@ export interface FullEditorProps {
   spaceSlug: string;
   editable: boolean;
   creator?: PageUser;
+  lastUpdatedBy: PageUser | null;
+  updatedAt: Date;
   contributors?: IContributor[];
   canComment?: boolean;
 }
@@ -62,6 +65,8 @@ export function FullEditor({
   spaceSlug,
   editable,
   creator,
+  lastUpdatedBy,
+  updatedAt,
   contributors,
   canComment,
 }: FullEditorProps) {
@@ -103,7 +108,12 @@ export function FullEditor({
         spaceSlug={spaceSlug}
         editable={editable}
       />
-      <PageByline creator={creator} contributors={contributors} />
+      <PageByline
+        creator={creator}
+        contributors={contributors}
+        lastUpdatedBy={lastUpdatedBy}
+        updatedAt={updatedAt}
+      />
       <MemoizedPageEditor
         pageId={pageId}
         editable={editable}
@@ -117,10 +127,18 @@ export function FullEditor({
 
 type PageBylineProps = {
   creator?: PageUser;
+  lastUpdatedBy: PageUser | null;
+  updatedAt: Date;
   contributors?: IContributor[];
 };
 
-function PageByline({ creator, contributors }: PageBylineProps) {
+function PageByline({
+  creator,
+  contributors,
+  lastUpdatedBy,
+  updatedAt,
+}: PageBylineProps) {
+  const updatedDate = new Date(updatedAt);
   const { t } = useTranslation();
   const detailsTriggerProps = useAsideTriggerProps("details");
 
@@ -197,6 +215,17 @@ function PageByline({ creator, contributors }: PageBylineProps) {
           </Popover.Dropdown>
         </Popover>
       )}
+      <Text
+        size="sm"
+        c="dimmed"
+        style={{ minWidth: 0, maxWidth: "100%", overflowWrap: "anywhere" }}
+      >
+        {t("Last updated: {{name}}", { name: lastUpdatedBy?.name ?? "—" })}
+        {" · "}
+        <time dateTime={updatedDate.toISOString()}>
+          {format(updatedDate, "yyyy-MM-dd HH:mm")}
+        </time>
+      </Text>
       <Tooltip label={t("Details")} withArrow openDelay={250}>
         <ActionIcon
           variant="subtle"

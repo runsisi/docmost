@@ -73,6 +73,21 @@ export class CommentRepo {
       .executeTakeFirst();
   }
 
+  async resolveComment(commentId: string, resolved: boolean, userId: string) {
+    const now = new Date();
+    return this.db
+      .updateTable('comments')
+      .set({
+        resolvedAt: resolved ? now : null,
+        resolvedById: resolved ? userId : null,
+        updatedAt: now,
+      })
+      .where('id', '=', commentId)
+      .where('resolvedAt', resolved ? 'is' : 'is not', null)
+      .returningAll()
+      .executeTakeFirst();
+  }
+
   withCreator(eb: ExpressionBuilder<DB, 'comments'>) {
     return jsonObjectFrom(
       eb
@@ -105,7 +120,10 @@ export class CommentRepo {
     return Number(result?.count) > 0;
   }
 
-  async hasChildrenFromOtherUsers(commentId: string, userId: string): Promise<boolean> {
+  async hasChildrenFromOtherUsers(
+    commentId: string,
+    userId: string,
+  ): Promise<boolean> {
     const result = await this.db
       .selectFrom('comments')
       .select((eb) => eb.fn.count('id').as('count'))

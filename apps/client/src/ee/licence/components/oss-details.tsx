@@ -14,13 +14,12 @@ const enterpriseFeatures = [
   "API Keys",
   "Advanced Search Engine Support",
   "Full-text Search in Attachments (PDF, DOCX)",
-  "Resolve Comments",
   "Confluence Import",
   "PDF & DOCX Import",
   "Bases",
   "Kanban",
   "Templates",
-  "Personal Spaces"
+  "Personal Spaces",
 ];
 
 export default function OssDetails() {

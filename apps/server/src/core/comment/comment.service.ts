@@ -17,7 +17,10 @@ import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { CursorPaginationResult } from '@docmost/db/pagination/cursor-pagination';
 import { QueueJob, QueueName } from '../../integrations/queue/constants';
 import { extractUserMentionIdsFromJson } from '../../common/helpers/prosemirror/utils';
-import { ICommentNotificationJob } from '../../integrations/queue/constants/queue.interface';
+import {
+  ICommentNotificationJob,
+  ICommentResolvedNotificationJob,
+} from '../../integrations/queue/constants/queue.interface';
 import { WsService } from '../../ws/ws.service';
 
 @Injectable()
@@ -79,7 +82,9 @@ export class CommentService {
     });
 
     if (createCommentDto.yjsSelection) {
-      const parsed = yjsSelectionSchema.safeParse(createCommentDto.yjsSelection);
+      const parsed = yjsSelectionSchema.safeParse(
+        createCommentDto.yjsSelection,
+      );
       if (!parsed.success) {
         this.logger.warn(
           `Invalid yjsSelection for comment ${inserted.id}: ${parsed.error.message}`,
@@ -206,6 +211,67 @@ export class CommentService {
     return comment;
   }
 
+  async resolve(
+    comment: Comment,
+    resolved: boolean,
+    user: User,
+  ): Promise<Comment> {
+    if (comment.parentCommentId) {
+      throw new BadRequestException('Only comment threads can be resolved');
+    }
+
+    const changed = await this.commentRepo.resolveComment(
+      comment.id,
+      resolved,
+      user.id,
+    );
+    if (!changed) {
+      return this.findById(comment.id);
+    }
+
+    if (comment.type === 'inline') {
+      try {
+        await this.collaborationGateway.handleYjsEvent(
+          'resolveCommentMark',
+          `page.${comment.pageId}`,
+          { commentId: comment.id, resolved, user },
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to update inline mark for comment ${comment.id}; resolution saved`,
+          error,
+        );
+      }
+    }
+
+    const updated = await this.findById(comment.id);
+    this.wsService.emitCommentEvent(comment.spaceId, comment.pageId, {
+      operation: 'commentResolved',
+      pageId: comment.pageId,
+      comment: updated,
+    });
+
+    if (resolved && comment.creatorId && comment.creatorId !== user.id) {
+      const job: ICommentResolvedNotificationJob = {
+        commentId: comment.id,
+        commentCreatorId: comment.creatorId,
+        pageId: comment.pageId,
+        spaceId: comment.spaceId,
+        workspaceId: comment.workspaceId,
+        actorId: user.id,
+      };
+      await this.notificationQueue
+        .add(QueueJob.COMMENT_RESOLVED_NOTIFICATION, job)
+        .catch((error) =>
+          this.logger.warn(
+            `Failed to queue comment-resolved notification: ${error.message}`,
+          ),
+        );
+    }
+
+    return updated;
+  }
+
   private async queueCommentNotification(
     content: any,
     oldMentionIds: string[],
@@ -222,7 +288,8 @@ export class CommentService {
       (id) => id !== actorId && !oldMentionIds.includes(id),
     );
 
-    if (newMentionIds.length === 0 && !notifyWatchers && !parentCommentId) return;
+    if (newMentionIds.length === 0 && !notifyWatchers && !parentCommentId)
+      return;
 
     const jobData: ICommentNotificationJob = {
       commentId,
@@ -235,9 +302,6 @@ export class CommentService {
       notifyWatchers,
     };
 
-    await this.notificationQueue.add(
-      QueueJob.COMMENT_NOTIFICATION,
-      jobData,
-    );
+    await this.notificationQueue.add(QueueJob.COMMENT_NOTIFICATION, jobData);
   }
 }

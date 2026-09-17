@@ -48,6 +48,7 @@ function ResolveComment({
       position="top"
     >
       <ActionIcon
+        aria-label={isResolved ? t("Re-Open comment") : t("Resolve comment")}
         onClick={handleResolveToggle}
         variant="subtle"
         color={isResolved ? "green" : "gray"}

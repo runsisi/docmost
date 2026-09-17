@@ -1476,5 +1476,22 @@
   "Test event delivered to {{name}}": "测试事件已发送到 {{name}}",
   "Updated SIEM destination": "已更新 SIEM 目标",
   "Verify TLS certificate": "验证 TLS 证书",
-  "e.g. Splunk prod": "例如：Splunk 生产环境"
+  "e.g. Splunk prod": "例如：Splunk 生产环境",
+  "Sign in with Gitea": "使用 Gitea 登录",
+  "Link Gitea account": "绑定 Gitea 账号",
+  "Gitea account linked successfully.": "Gitea 账号绑定成功。",
+  "Your Gitea account is linked. You can use it to sign in.": "已绑定 Gitea 账号，可以使用它登录。",
+  "Could not connect to Gitea. Please try again.": "无法连接 Gitea，请重试。",
+  "An account with this email exists. Sign in with your existing account and link Gitea in My Profile.": "此邮箱已有账号，请使用原账号登录，在「我的资料」中绑定 Gitea。",
+  "Gitea signup is disabled. Sign in with an existing account and link Gitea in My Profile.": "未开放 Gitea 自动注册，请使用已有账号登录，在「我的资料」中绑定 Gitea。",
+  "Gitea authentication failed. Please try again.": "Gitea 认证失败，请重试。",
+  "This account is disabled.": "此账号已被停用。",
+  "Gitea login expired. Please try again.": "Gitea 登录已过期，请重试。",
+  "Gitea login expired or already used.": "Gitea 登录请求已过期或已使用。",
+  "Your login session changed. Please link Gitea again.": "登录会话已改变，请重新绑定 Gitea。",
+  "Your login session expired. Please sign in again.": "登录会话已过期，请重新登录。",
+  "This Gitea account is already linked to another user.": "此 Gitea 账号已绑定其他用户。",
+  "Verify your email in Gitea before signing up.": "请先在 Gitea 中验证邮箱再注册。",
+  "Use your existing login method to complete MFA.": "请使用原有登录方式完成多因素认证。",
+  "Gitea login is temporarily unavailable. Please try again.": "Gitea 登录暂时不可用，请稍后重试。"
 }

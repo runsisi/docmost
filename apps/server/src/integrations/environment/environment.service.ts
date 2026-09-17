@@ -10,6 +10,24 @@ export class EnvironmentService {
     return this.configService.get<string>('NODE_ENV', 'development');
   }
 
+  isGiteaEnabled(): boolean {
+    return (
+      this.isSelfHosted() &&
+      this.configService.get<string>('GITEA_ENABLED') === 'true'
+    );
+  }
+
+  getGiteaConfig() {
+    return {
+      issuer: this.configService.get<string>('GITEA_ISSUER'),
+      clientId: this.configService.get<string>('GITEA_CLIENT_ID'),
+      clientSecret: this.configService.get<string>('GITEA_CLIENT_SECRET'),
+      allowSignup:
+        this.configService.get<string>('GITEA_ALLOW_SIGNUP', 'false') ===
+        'true',
+    };
+  }
+
   isDevelopment(): boolean {
     return this.getNodeEnv() === 'development';
   }

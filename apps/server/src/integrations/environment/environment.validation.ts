@@ -6,6 +6,7 @@ import {
   IsString,
   IsUrl,
   Matches,
+  MaxLength,
   MinLength,
   ValidateIf,
   validateSync,
@@ -14,6 +15,34 @@ import { plainToInstance } from 'class-transformer';
 import { IsISO6391 } from '../../common/validators/is-iso6391';
 
 export class EnvironmentVariables {
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  GITEA_ENABLED: string;
+
+  @ValidateIf((obj) => obj.GITEA_ENABLED === 'true')
+  @IsUrl({
+    protocols: ['http', 'https'],
+    require_protocol: true,
+    require_tld: false,
+  })
+  @Matches(/^https?:\/\/[^?#@]+$/)
+  @MaxLength(2048)
+  GITEA_ISSUER: string;
+
+  @ValidateIf((obj) => obj.GITEA_ENABLED === 'true')
+  @IsNotEmpty()
+  @IsString()
+  GITEA_CLIENT_ID: string;
+
+  @ValidateIf((obj) => obj.GITEA_ENABLED === 'true')
+  @IsNotEmpty()
+  @IsString()
+  GITEA_CLIENT_SECRET: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  GITEA_ALLOW_SIGNUP: string;
+
   @IsNotEmpty()
   @IsUrl(
     {

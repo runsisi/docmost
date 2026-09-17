@@ -1476,5 +1476,22 @@
   "Test event delivered to {{name}}": "Test event delivered to {{name}}",
   "Updated SIEM destination": "Updated SIEM destination",
   "Verify TLS certificate": "Verify TLS certificate",
-  "e.g. Splunk prod": "e.g. Splunk prod"
+  "e.g. Splunk prod": "e.g. Splunk prod",
+  "Sign in with Gitea": "Sign in with Gitea",
+  "Link Gitea account": "Link Gitea account",
+  "Gitea account linked successfully.": "Gitea account linked successfully.",
+  "Your Gitea account is linked. You can use it to sign in.": "Your Gitea account is linked. You can use it to sign in.",
+  "Could not connect to Gitea. Please try again.": "Could not connect to Gitea. Please try again.",
+  "An account with this email exists. Sign in with your existing account and link Gitea in My Profile.": "An account with this email exists. Sign in with your existing account and link Gitea in My Profile.",
+  "Gitea signup is disabled. Sign in with an existing account and link Gitea in My Profile.": "Gitea signup is disabled. Sign in with an existing account and link Gitea in My Profile.",
+  "Gitea authentication failed. Please try again.": "Gitea authentication failed. Please try again.",
+  "This account is disabled.": "This account is disabled.",
+  "Gitea login expired. Please try again.": "Gitea login expired. Please try again.",
+  "Gitea login expired or already used.": "Gitea login expired or already used.",
+  "Your login session changed. Please link Gitea again.": "Your login session changed. Please link Gitea again.",
+  "Your login session expired. Please sign in again.": "Your login session expired. Please sign in again.",
+  "This Gitea account is already linked to another user.": "This Gitea account is already linked to another user.",
+  "Verify your email in Gitea before signing up.": "Verify your email in Gitea before signing up.",
+  "Use your existing login method to complete MFA.": "Use your existing login method to complete MFA.",
+  "Gitea login is temporarily unavailable. Please try again.": "Gitea login is temporarily unavailable. Please try again."
 }

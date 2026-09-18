@@ -12,6 +12,7 @@ api.interceptors.response.use(
     // we need the response headers for these endpoints
     const exemptEndpoints = [
       "/api/pages/export",
+      "/api/pages/export-docx",
       "/api/spaces/export",
       "/api/docx-export",
       "/api/bases/export-csv",
@@ -25,7 +26,19 @@ api.interceptors.response.use(
 
     return response.data;
   },
-  (error) => {
+  async (error) => {
+    // Binary downloads still return JSON for HTTP errors. Decode before the
+    // status handlers (including 404) and the caller inspect the message.
+    if (
+      error.response?.data instanceof Blob &&
+      error.response.data.type.includes("json")
+    ) {
+      try {
+        error.response.data = JSON.parse(await error.response.data.text());
+      } catch {
+        // Preserve the HTTP error when an upstream response is malformed.
+      }
+    }
     if (error.response) {
       switch (error.response.status) {
         case 401: {
@@ -50,8 +63,8 @@ api.interceptors.response.use(
         case 404:
           // Handle not found error
           if (
-            error.response.data.message
-              .toLowerCase()
+            error.response.data?.message
+              ?.toLowerCase()
               .includes("workspace not found")
           ) {
             console.log("workspace not found");

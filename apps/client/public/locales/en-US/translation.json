@@ -290,6 +290,8 @@
   "Export failed:": "Export failed:",
   "export error": "export error",
   "Export page": "Export page",
+  "Exported with incomplete content. See the notes in the document.": "Exported with incomplete content. See the notes in the document.",
+  "Export failed": "Export failed",
   "Export successful": "Export successful",
   "Export space": "Export space",
   "Export {{type}}": "Export {{type}}",

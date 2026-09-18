@@ -245,8 +245,12 @@ export const defaultMarks: MarkSerializer = {
 export async function pageNodeToDocxBuffer(
   doc: Node,
   getImageBuffer: DocxImageResolver,
+  nodeOverrides: NodeSerializerAsync = {},
 ): Promise<Buffer> {
-  const serializer = new DocxSerializerAsync(defaultAsyncNodes, defaultMarks);
+  const serializer = new DocxSerializerAsync(
+    { ...defaultAsyncNodes, ...nodeOverrides },
+    defaultMarks,
+  );
   const wordDoc = await serializer.serializeAsync(
     doc,
     { getImageBuffer },

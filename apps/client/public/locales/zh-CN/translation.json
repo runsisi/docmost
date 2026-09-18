@@ -290,6 +290,8 @@
   "Export failed:": "导出失败：",
   "export error": "导出出错",
   "Export page": "导出页面",
+  "Exported with incomplete content. See the notes in the document.": "已导出，部分内容未完整转换，请查看文档内说明",
+  "Export failed": "导出失败",
   "Export successful": "导出成功",
   "Export space": "导出空间",
   "Export {{type}}": "导出为 {{type}}",

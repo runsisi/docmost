@@ -132,23 +132,26 @@ export async function exportPage(data: IExportPageParams): Promise<void> {
   saveAs(req.data, decodedFileName);
 }
 
-export async function exportPageToDocx(data: { pageId: string }): Promise<void> {
-  const req = await api.post("/docx-export", data, {
+export async function exportPageToDocx(data: {
+  pageId: string;
+}): Promise<number> {
+  const req = await api.post("/pages/export-docx", data, {
     responseType: "blob",
   });
-
-  const fileName = req?.headers["content-disposition"]
-    .split("filename=")[1]
-    .replace(/"/g, "");
-
-  let decodedFileName = fileName;
-  try {
-    decodedFileName = decodeURIComponent(fileName);
-  } catch (err) {
-    // fallback to raw filename
+  const disposition = req.headers["content-disposition"] || "";
+  const encodedName =
+    disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1] ||
+    disposition.match(/filename="([^"]+)"/i)?.[1];
+  let fileName = "untitled.docx";
+  if (encodedName) {
+    try {
+      fileName = decodeURIComponent(encodedName);
+    } catch {
+      fileName = encodedName;
+    }
   }
-
-  saveAs(req.data, decodedFileName);
+  saveAs(req.data, fileName);
+  return Number(req.headers["x-docmost-export-warning-count"] || 0);
 }
 
 export async function importPage(file: File, spaceId: string) {

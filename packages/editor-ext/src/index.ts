@@ -36,6 +36,9 @@ export * from "./lib/footnotes";
 export * from "./lib/resizable-nodeview";
 export {
   pageNodeToDocxBuffer,
+  defaultAsyncNodes,
+  defaultMarks,
+  type NodeSerializerAsync,
   type DocxImageResolver,
 } from "./lib/prosemirror-docx";
 export * from "./lib/base-embed";

@@ -42,3 +42,4 @@ export {
   type DocxImageResolver,
 } from "./lib/prosemirror-docx";
 export * from "./lib/base-embed";
+export * from "./lib/anchors";

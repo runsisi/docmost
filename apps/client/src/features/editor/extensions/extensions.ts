@@ -53,6 +53,7 @@ import {
   TableReadonlySort,
   Subpages,
   Heading,
+  MarkdownAnchors,
   Highlight,
   Indent,
   UniqueID,
@@ -188,6 +189,7 @@ export const mainExtensions = [
   }),
   SharedStorage,
   Heading,
+  MarkdownAnchors,
   UniqueID.configure({
     types: ["heading", "paragraph", "transclusionSource"],
     filterTransaction: (transaction) => !isChangeOrigin(transaction),

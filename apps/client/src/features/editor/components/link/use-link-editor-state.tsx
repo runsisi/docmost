@@ -11,7 +11,7 @@ export const useLinkEditorState = ({
     setUrl(event.target.value);
   }, []);
 
-  const isValidUrl = useMemo(() => /^(\S+):(\/\/)?\S+$/.test(url), [url]);
+  const isValidUrl = useMemo(() => /^#.+$/.test(url) || /^(\S+):(\/\/)?\S+$/.test(url), [url]);
 
   const isSearchQuery = useMemo(
     () => url.length > 0 && !isValidUrl,

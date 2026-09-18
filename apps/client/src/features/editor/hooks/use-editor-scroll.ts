@@ -1,3 +1,6 @@
+import { findAnchorTarget } from "@docmost/editor-ext";
+import { notifications } from "@mantine/notifications";
+import i18n from "@/i18n";
 import { Editor } from "@tiptap/react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -19,7 +22,9 @@ export const useEditorScroll = ({
   canScroll: () => boolean;
   initialScrollTo?: string;
 }) => {
-  const [scrollTo, setScrollTo] = useState<string>(initialScrollTo || "");
+  const [scrollTo, setScrollTo] = useState<string>(
+    () => initialScrollTo || window.location.hash.slice(1),
+  );
 
   useEffect(() => {
     if (!initialScrollTo) {
@@ -32,6 +37,7 @@ export const useEditorScroll = ({
     return new Promise((resolve) => {
       const MAX_TRY_COUNT = 10;
       if (tryCount >= MAX_TRY_COUNT) {
+        notifications.show({ message: i18n.t("Link target not found"), color: "yellow" });
         resolve(false);
         return;
       }
@@ -46,7 +52,7 @@ export const useEditorScroll = ({
         resolve(false);
         return;
       }
-      const dom = editor.view.dom.querySelector(`[id="${targetId}"], [data-id="${targetId}"]`);
+      const dom = findAnchorTarget(editor.view.dom, targetId);
       if (dom) {
         dom.scrollIntoView({ behavior: 'smooth', block: 'start' });
         resolve(true);

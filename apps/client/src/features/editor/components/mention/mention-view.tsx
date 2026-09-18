@@ -1,3 +1,6 @@
+import { findAnchorTarget } from "@docmost/editor-ext";
+import { notifications } from "@mantine/notifications";
+import { useTranslation } from "react-i18next";
 import { NodeViewProps, NodeViewWrapper } from "@tiptap/react";
 import { ActionIcon, Anchor, Text } from "@mantine/core";
 import { IconFileDescription } from "@tabler/icons-react";
@@ -14,7 +17,8 @@ import { extractPageSlugId } from "@/lib";
 import classes from "./mention.module.css";
 
 export default function MentionView(props: NodeViewProps) {
-  const { node } = props;
+  const { node, editor } = props;
+  const { t } = useTranslation();
   const { label, entityType, entityId, slugId, anchorId } = node.attrs;
   const isPageMention = entityType === "page";
   const { spaceSlug, pageSlug } = useParams();
@@ -51,12 +55,15 @@ export default function MentionView(props: NodeViewProps) {
   const isSamePage = currentPageSlugId === slugId;
 
   const handleClick = (e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
     if (isSamePage && anchorId) {
       e.preventDefault();
-      const element = document.querySelector(`[id="${anchorId}"]`);
+      const element = findAnchorTarget(editor.view.dom, anchorId);
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "start" });
         navigate(`#${anchorId}`, { replace: true });
+      } else {
+        notifications.show({ message: t("Link target not found"), color: "yellow" });
       }
     }
   };

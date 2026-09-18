@@ -65,6 +65,9 @@ const renderEmbedLine: NodeSerializerAsync[string] = (state, node) => {
 };
 
 export const defaultAsyncNodes: NodeSerializerAsync = {
+  // Named anchors carry navigation metadata, not printable content.
+  anchor() {},
+  anchorBlock() {},
   text(state, node) {
     state.text(node.text ?? '');
   },

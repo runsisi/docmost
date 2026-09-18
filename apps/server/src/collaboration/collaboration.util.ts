@@ -10,6 +10,7 @@ import { Youtube } from '@tiptap/extension-youtube';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import {
   Heading,
+  MarkdownAnchors,
   Callout,
   Comment,
   CustomCodeBlock,
@@ -79,6 +80,7 @@ export const tiptapExtensions = [
     content: 'block+ footnotes?',
   }),
   Heading,
+  MarkdownAnchors,
   UniqueID.configure({
     types: ['heading', 'paragraph', 'transclusionSource'],
   }),

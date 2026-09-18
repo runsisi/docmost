@@ -350,7 +350,6 @@ function CollabPageEditor({
           setEditor(editor);
           // @ts-ignore
           editor.storage.pageId = pageId;
-          handleScrollTo(editor);
           editorRef.current = editor;
         }
       },
@@ -463,6 +462,12 @@ function CollabPageEditor({
     }
   }, [yjsConnectionStatus, isSynced]);
 
+  useEffect(() => {
+    if (!showStatic && editor) {
+      handleScrollTo(editor);
+    }
+  }, [showStatic, editor, handleScrollTo]);
+
   if (showStatic) {
     return <StaticPageEditor content={content} ariaLabel={t("Page content")} />;
   }
@@ -528,6 +533,7 @@ function StaticPageEditor({
   content: any;
   ariaLabel: string;
 }) {
+  const { handleScrollTo } = useEditorScroll({ canScroll: () => true });
   return (
     <EditorProvider
       editable={false}
@@ -535,6 +541,7 @@ function StaticPageEditor({
       textDirection="auto"
       extensions={mainExtensions}
       content={content}
+      onCreate={({ editor }) => { handleScrollTo(editor); }}
       editorProps={{
         attributes: {
           "aria-label": ariaLabel,

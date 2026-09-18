@@ -167,7 +167,7 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "happy-dom.+\\.js$": [
+      "(happy-dom|github-slugger).+\\.js$": [
         "babel-jest",
         {
           "presets": [
@@ -185,7 +185,7 @@
       "^.+\\.(t|j)sx?$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!(\\.pnpm/)?(nanoid|uuid|image-dimensions|marked|happy-dom)(@|/))"
+      "/node_modules/(?!(\\.pnpm/)?(nanoid|uuid|image-dimensions|marked|happy-dom|github-slugger)(@|/))"
     ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"

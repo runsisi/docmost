@@ -36,8 +36,34 @@ export function htmlToMarkdown(html: string): string {
     video,
     footnoteRef,
     footnotesList,
+    preserveAnchors,
   ]);
   return turndownService.turndown(html).replaceAll('<br>', ' ');
+}
+
+function anchorMarkup(anchor: HTMLElement): string {
+  const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const attrs = ['id', 'name'].filter(name => anchor.hasAttribute(name))
+    .map(name => ` ${name}="${escape(anchor.getAttribute(name)!)}"`).join('');
+  return `<a${attrs}></a>`;
+}
+
+function preserveAnchors(turndownService: _TurndownService) {
+  turndownService.addRule('namedAnchor', {
+    filter: (node: HTMLElement) => node.nodeName === 'A' && !node.hasAttribute('href')
+      && (node.hasAttribute('id') || node.hasAttribute('name')) && !node.textContent?.trim(),
+    replacement: (_content: string, node: HTMLElement) => anchorMarkup(node),
+  });
+  turndownService.addRule('headingAnchor', {
+    filter: (node: HTMLElement) => /^H[1-6]$/.test(node.nodeName)
+      && node.hasAttribute('id') && node.id !== node.getAttribute('data-id'),
+    replacement: (content: string, node: HTMLElement) => {
+      const anchor = node.ownerDocument.createElement('a');
+      anchor.id = node.id;
+      return `\n\n${anchorMarkup(anchor)}\n\n${'#'.repeat(Number(node.nodeName[1]))} ${content}\n\n`;
+    },
+  });
 }
 
 function listParagraph(turndownService: _TurndownService) {

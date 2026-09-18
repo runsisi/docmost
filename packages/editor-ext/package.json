@@ -11,6 +11,7 @@
   "module": "./src/index.ts",
   "types": "dist/index.d.ts",
   "dependencies": {
+    "github-slugger": "2.0.0",
     "marked": "17.0.5"
   }
 }

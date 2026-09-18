@@ -33,7 +33,12 @@ import {
   buildSharedPageUrl,
 } from "@/features/page/page.utils.ts";
 import { extractPageSlugId } from "@/lib";
-import { sanitizeUrl, copyToClipboard, isEditorReady } from "@docmost/editor-ext";
+import {
+  sanitizeUrl,
+  copyToClipboard,
+  isEditorReady,
+  findAnchorTarget,
+} from "@docmost/editor-ext";
 import { normalizeUrl } from "@/lib/utils";
 
 const parseInternalLink = (
@@ -63,6 +68,7 @@ const parseInternalLink = (
 export default function LinkView(props: MarkViewProps) {
   const { mark, editor } = props;
   const href = mark.attrs.href as string;
+  const isFragment = href?.startsWith("#");
   const navigate = useNavigate();
   const location = useLocation();
   const { shareId, spaceSlug, pageSlug } = useParams();
@@ -244,8 +250,60 @@ export default function LinkView(props: MarkViewProps) {
     };
   }, [isPopoverVisible]);
 
+  const internalHref = () => {
+    const anchorId = href.includes("#")
+      ? href.slice(href.indexOf("#") + 1)
+      : undefined;
+    if (isShareRoute && slugId) {
+      return buildSharedPageUrl({
+        shareId,
+        pageSlugId: slugId,
+        pageTitle,
+        anchorId,
+      });
+    }
+    if (isPublicSpaceRoute && slugId && publicSpacePageData?.page) {
+      return buildPublicSpaceUrl({
+        spaceSlug,
+        pageSlugId: slugId,
+        pageTitle,
+        anchorId,
+      });
+    }
+    return href;
+  };
+
+  const displayHref = sanitizeUrl(
+    isFragment
+      ? new URL(href, window.location.href).href
+      : isInternal
+        ? internalHref()
+        : normalizeUrl(href),
+  );
+
   const handleNavigate = useCallback(() => {
     if (!href) return;
+
+    const scrollToFragment = (fragment: string) => {
+      const element = findAnchorTarget(editor.view.dom, fragment);
+      if (!element) {
+        notifications.show({
+          message: t("Link target not found"),
+          color: "yellow",
+        });
+        return;
+      }
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+      navigate(`${location.pathname}${location.search}#${fragment}`, {
+        replace: true,
+      });
+      setPopoverState("closed");
+    };
+
+    if (isFragment) {
+      scrollToFragment(href.slice(1));
+      return;
+    }
 
     if (isInternal) {
       let targetPath = href;
@@ -264,14 +322,8 @@ export default function LinkView(props: MarkViewProps) {
       if (anchor) {
         const currentPageSlugId = extractPageSlugId(pageSlug);
         if (!slugId || currentPageSlugId === slugId) {
-          const element =
-            document.querySelector(`[id="${anchor}"]`) ||
-            document.querySelector(`[data-id="${anchor}"]`);
-          if (element) {
-            element.scrollIntoView({ behavior: "smooth", block: "start" });
-            navigate(`${location.pathname}#${anchor}`, { replace: true });
-            return;
-          }
+          scrollToFragment(anchor);
+          return;
         }
       }
 
@@ -318,6 +370,10 @@ export default function LinkView(props: MarkViewProps) {
     href,
     navigate,
     location.pathname,
+    location.search,
+    editor,
+    t,
+    isFragment,
     isInternal,
     isShareRoute,
     isPublicSpaceRoute,
@@ -331,6 +387,13 @@ export default function LinkView(props: MarkViewProps) {
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
+      if (isEditable && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(displayHref, "_blank", "noopener,noreferrer");
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
       e.stopPropagation();
       if (isEditable) {
@@ -339,7 +402,7 @@ export default function LinkView(props: MarkViewProps) {
         handleNavigate();
       }
     },
-    [handleNavigate, isEditable],
+    [handleNavigate, isEditable, displayHref],
   );
 
   const handleCopy = useCallback(
@@ -348,7 +411,9 @@ export default function LinkView(props: MarkViewProps) {
       e.stopPropagation();
 
       const fullUrl = sanitizeUrl(
-        isInternal ? `${window.location.origin}${href}` : href,
+        isFragment || isInternal
+          ? new URL(href, window.location.href).href
+          : href,
       );
       copyToClipboard(fullUrl);
       notifications.show({
@@ -356,7 +421,7 @@ export default function LinkView(props: MarkViewProps) {
       });
       setPopoverState("closed");
     },
-    [href, isInternal, t],
+    [href, isFragment, isInternal, t],
   );
 
   const handleRemoveLink = useCallback(() => {
@@ -365,20 +430,6 @@ export default function LinkView(props: MarkViewProps) {
     }
     setPopoverState("closed");
   }, [editor]);
-
-  const internalHref = () => {
-    if (isShareRoute && slugId) {
-      return buildSharedPageUrl({ shareId, pageSlugId: slugId, pageTitle });
-    }
-    if (isPublicSpaceRoute && slugId && publicSpacePageData?.page) {
-      return buildPublicSpaceUrl({ spaceSlug, pageSlugId: slugId, pageTitle });
-    }
-    return href;
-  };
-
-  const displayHref = sanitizeUrl(
-    isInternal ? internalHref() : normalizeUrl(href),
-  );
 
   const linkTitleInput = (
     <>
@@ -456,9 +507,8 @@ export default function LinkView(props: MarkViewProps) {
           <a
             href={displayHref}
             spellCheck={false}
-            onClick={(e) => e.preventDefault()}
-            target={isInternal ? undefined : "_blank"}
-            rel={isInternal ? undefined : "noopener noreferrer"}
+            target={isInternal || isFragment ? undefined : "_blank"}
+            rel={isInternal || isFragment ? undefined : "noopener noreferrer"}
           >
             <MarkViewContent />
           </a>
@@ -565,8 +615,8 @@ export default function LinkView(props: MarkViewProps) {
               component="a"
               //@ts-ignore
               href={displayHref}
-              target={isInternal ? undefined : "_blank"}
-              rel={isInternal ? undefined : "noopener noreferrer"}
+              target={isInternal || isFragment ? undefined : "_blank"}
+              rel={isInternal || isFragment ? undefined : "noopener noreferrer"}
               gap={6}
               wrap="nowrap"
               style={{
@@ -577,6 +627,7 @@ export default function LinkView(props: MarkViewProps) {
                 userSelect: "none",
               }}
               onClick={(e: React.MouseEvent) => {
+                if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
                 e.preventDefault();
                 handleNavigate();
               }}

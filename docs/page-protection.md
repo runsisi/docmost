@@ -55,6 +55,8 @@ HTTP 写入检查和协作更新检查均实时查询数据库，不缓存保护
 
 数据库事务提交后通过 PostgreSQL `NOTIFY` 向应用发送旧／新空间 ID，应用再广播 `pageProtectionInvalidated`。通知不包含页面名称或内容。浏览器收到通知或重新连接时重新查询有权访问的页面、页面树和空间设置；协作写入正确性不依赖通知及时到达。保护订阅还会刷新已加载但没有活动查询订阅的子节点查询，并将根节点和子节点的最新锁状态写入页面树，保留原有树结构和展开状态。
 
+页面在树中移动成功后，本地和接收移动事件的浏览器都会主动查询目标父页的完整子节点列表，并刷新已加载后代的保护状态。目标目录尚未展开时也会建立查询；移到根目录时查询根页面列表。移动前的在途查询会被取消，手工更新的局部缓存不作为保护状态来源。刷新仅更新锁状态，保留树结构、展开状态及选中页面；显式覆盖仍由服务端解析。刷新失败显示提示并保留当前树，后续通知或重连重新查询。
+
 ## 断线与本地恢复
 
 协作认证携带页面保护版本，重连不能把旧文档自动绑定到新版本。浏览器的 IndexedDB 文档按页面和保护版本隔离。旧版本文档不会合并进新版本；启用此功能前未带版本的旧缓存也不会自动导入。
@@ -82,7 +84,7 @@ HTTP 写入检查和协作更新检查均实时查询数据库，不缓存保护
 
 ## 本地验证
 
-使用 `data/local/compose.yaml` 的现有应用、PostgreSQL、Redis 和附件卷，地址为 <http://192.168.1.60:3010>。本地镜像名为 `docmost-local:space-root-default`。
+使用 `data/local/compose.yaml` 的现有应用、PostgreSQL、Redis 和附件卷，地址为 <http://192.168.1.60:3010>。本地镜像名为 `docmost-local:move-protection`。
 
 ```bash
 pnpm build
@@ -95,6 +97,15 @@ pnpm --filter server test --runInBand --runTestsByPath \
 
 # 使用已有 Playwright 安装；不创建其他应用、数据库或 Redis。
 PLAYWRIGHT_MODULE=/path/to/playwright-core node tests/page-protection.local.cjs
+
+# 实际拖拽、双浏览器和移动／刷新失败回归；仅创建临时测试空间。
+PLAYWRIGHT_MODULE=/path/to/playwright-core PROTECTION_TEST_FOCUS=move \
+  node tests/page-protection.local.cjs
+
+pnpm --filter client test \
+  src/features/page/hooks/use-page-protection-subscription.test.tsx \
+  src/features/page/tree/model/tree-model.test.ts \
+  src/features/page/tree/hooks/drop-op-to-move-payload.test.ts
 ```
 
 本地浏览器脚本使用现有管理员创建两个临时测试空间及临时空间管理员、编辑、只读和非成员账号。默认值开关测试只在临时空间执行，不修改真实空间配置或现有账号权限；测试空间、页面和账号在结束时清理，并校验原文档未变化。截图及导出文件默认保留在 `/tmp/docmost-protection-validation`。
@@ -114,9 +125,20 @@ PLAYWRIGHT_MODULE=/path/to/playwright-core node tests/page-protection.local.cjs
 
 日志、截图和导出样本位于 `data/local/protection-validation/space-root-default-20260917-210548/`，升级前备份位于 `data/local/backups/space-root-default-20260917-204845/`。原数据快照校验要求测试期间没有其他客户端同时修改原文档或配置。
 
+## 移动后侧栏状态验证（2026-09-18）
+
+本地运行镜像为 `docmost-local:move-protection`，摘要为 `sha256:c72678e87108c0d41289d42219d73dc86b736f269171363a1ce53b92e30cf156`。
+65 项前端定向测试、客户端类型检查、工作区构建及完整页面保护浏览器回归通过。实际拖拽覆盖首次移入未展开目录、反向移动、移到根目录、带显式覆盖的多层子树、双浏览器同步、通知先于移动响应、移动失败回滚和刷新失败后的恢复；展开状态和选中页面保持正常。定向测试还覆盖分页结果、延迟旧响应和连续移动。
+
+测试空间、页面和账号已清理，原文档、空间设置和成员权限前后校验一致。日志及截图保存在 `data/local/protection-validation/move-refresh-20260918-083544/`，旧镜像与 Compose 配置保存在 `data/local/backups/move-protection-20260918-083048/`，回退此项前端修复无需数据库迁移。
+
 ## 部署与回滚
 
-此变更只部署到上述本地环境，不自动更新 `10.0.1.70`。
+本地环境使用 `docmost-local:move-protection`。`10.0.1.70` 的 `/home/runsisi/docmost` 使用已发布的 `oci.xcube.com/docmost:gitea-v1.2`，Compose 固定摘要为 `sha256:3f2957776adab76791ab4438ef7f64d8633d8396162f68d5d8f81f1cfc1db7bf`，访问地址为 <http://docs.xcube.com>。
+
+70 环境的升级前备份位于 `/home/runsisi/docmost/backups/gitea-v1.2-20260918-085004/`，包含数据库、附件、Redis 快照和部署配置。旧镜像保留为 `localhost/docmost:before-gitea-v1.2-20260918-085004`。本次前端修复无新增数据库迁移，回退该修复可恢复备份中的 Compose 并使用旧镜像，无需恢复旧数据。
+
+70 环境已验证首页及前端资源、数据库和 Redis 健康检查、Gitea 登录跳转及协作 WebSocket 握手；升级前后均为 340 个页面、826 个附件和 6 个用户。未执行完整登录、线上编辑、备份恢复演练或主机重启测试。发布记录位于 `data/local/releases/gitea-v1.2-20260918-085004/`。
 
 空间默认设置不增加数据库迁移。升级后未配置空间的继承根页面立即锁定；页面显式状态保留。版本摘要的固定标识使升级前旧缓存不能自动进入新协作版本，未确认修改保留为本地恢复副本。
 

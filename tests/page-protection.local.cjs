@@ -112,6 +112,72 @@ const record = message => console.log('PASS '+message);
     const A = await create('A'); const B = await create('B',A.id); const C = await create('C',B.id); const D = await create('D',C.id);
     assert.equal(A.protection.mode,'inherit'); assert.equal(A.isLocked,true);
     assert.equal(A.protection.rootDefaultLocked,true);
+    if (process.env.PROTECTION_TEST_FOCUS === 'move') {
+      const target = await create('Unlocked destination'); await set(target.id,'unlocked');
+      const override = await create('Explicit locked descendant',B.id); await set(override.id,'locked');
+      const overrideChild = await create('Inherit explicit lock',override.id);
+      const unlockedOverride = await create('Explicit unlocked descendant',B.id); await set(unlockedOverride.id,'unlocked');
+      const tab = await open(admin,D), peer = await open(writer,D);
+      const row = (browserTab,page) => browserTab.locator(`[data-row-id="${page.id}"]`);
+      async function expand(browserTab,page) {
+        await browserTab.waitForFunction(id=>document.querySelector(`[data-row-id="${id}"]`)?.hasAttribute('aria-expanded'),page.id);
+        if(await row(browserTab,page).getAttribute('aria-expanded') === 'false')
+          await row(browserTab,page).getByRole('button',{name:/^(Expand|展开)$/}).click();
+      }
+      for(const browserTab of [tab,peer]) { await expand(browserTab,override); await row(browserTab,overrideChild).waitFor(); }
+      async function lock(browserTab,page,expected) {
+        await row(browserTab,page).waitFor();
+        await row(browserTab,page).locator('[aria-label="Locked"], [aria-label="已锁定"]').waitFor({state:expected?'visible':'hidden',timeout:5000});
+      }
+      async function check(expected) {
+        for(const browserTab of [tab,peer]) {
+          await lock(browserTab,B,expected); await lock(browserTab,C,expected); await lock(browserTab,D,expected);
+          await lock(browserTab,override,true); await lock(browserTab,overrideChild,true); await lock(browserTab,unlockedOverride,false);
+          assert(browserTab.url().includes(D.slugId),'Selected page must not change');
+          assert.equal(await row(browserTab,B).getAttribute('aria-expanded'),'true');
+        }
+        assert.equal((await info(B.id)).isLocked,expected);
+        assert.equal((await info(D.id)).isLocked,expected);
+      }
+      async function dragTo(source,destination,root=false,status=200) {
+        const start=await row(tab,source).boundingBox(), end=await row(tab,destination).boundingBox();
+        const response=tab.waitForResponse(r=>r.url().endsWith('/api/pages/move'));
+        await tab.mouse.move(start.x+95,start.y+start.height/2); await tab.mouse.down();
+        await tab.mouse.move(start.x+100,start.y+start.height/2+5,{steps:5});
+        await tab.mouse.move(end.x+110,end.y+(root?2:end.height/2),{steps:20});
+        await tab.mouse.up(); assert.equal((await response).status(),status);
+      }
+      await check(true);
+      // Delay the HTTP response: committed protection notification arrives before local move completion.
+      await tab.route('**/api/pages/move',async route=>{
+        const response=await route.fetch(); await new Promise(resolve=>setTimeout(resolve,500));
+        await route.fulfill({response});
+      });
+      await dragTo(B,target); await expand(peer,target); await check(false);
+      await tab.unroute('**/api/pages/move');
+      record('drag to previously childless/unopened destination updates both browsers and loaded subtree; explicit overrides preserved; notification before move response');
+      await dragTo(B,A); await expand(peer,A); await check(true);
+      await dragTo(B,target); await check(false);
+      await dragTo(B,A,true); await check(true);
+      assert.equal((await info(B.id)).parentPageId,null);
+      record('reverse move, cached destination and root move refresh locks without reload; selected page and expanded subtree preserved');
+      await tab.route('**/api/pages/move',route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'Simulated move failure'})}));
+      await dragTo(B,target,false,500);
+      await tab.getByText(/Failed to move page|移动页面失败/).waitFor();
+      assert.equal((await info(B.id)).parentPageId,null); await check(true);
+      await tab.unroute('**/api/pages/move');
+      record('failed move restores original hierarchy and lock state');
+      for(const browserTab of [tab,peer]) await browserTab.route('**/api/pages/sidebar-pages',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'Simulated refresh failure'})}));
+      await dragTo(B,target); await expand(peer,target);
+      await tab.getByText(/Failed to refresh page protection|刷新页面保护状态失败/).waitFor();
+      await lock(tab,B,true); assert.equal((await info(B.id)).isLocked,false);
+      for(const browserTab of [tab,peer]) await browserTab.unroute('**/api/pages/sidebar-pages');
+      await set(target.id,'locked'); await set(target.id,'unlocked'); await check(false);
+      record('refresh failure preserves tree and reports error; later notification recovers authoritative state');
+      await tab.screenshot({path:path.join(output,'move-protection.png'),fullPage:true});
+      assert.deepEqual(errors,[]);
+      return;
+    }
     // Both root and lazily loaded descendants must update without collapsing the tree.
     {
       const tab=await open(admin,B);

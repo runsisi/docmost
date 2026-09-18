@@ -1516,5 +1516,6 @@
   "Use space default": "Use space default",
   "Space default: locked": "Space default: locked",
   "Space default: unlocked": "Space default: unlocked",
-  "Last updated: {{name}}": "Last updated: {{name}}"
+  "Last updated: {{name}}": "Last updated: {{name}}",
+  "Failed to refresh page protection. Reconnect or reload to try again.": "Failed to refresh page protection. Reconnect or reload to try again."
 }

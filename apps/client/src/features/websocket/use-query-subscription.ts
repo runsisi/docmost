@@ -14,7 +14,10 @@ import {
 import { RQ_KEY } from "../comment/queries/comment-query";
 import { IComment } from "@/features/comment/types/comment.types";
 
-import { usePageProtectionSubscription } from "@/features/page/hooks/use-page-protection-subscription";
+import {
+  usePageProtectionSubscription,
+  refreshPageProtectionAfterMove,
+} from "@/features/page/hooks/use-page-protection-subscription";
 
 export const useQuerySubscription = () => {
   const queryClient = useQueryClient();
@@ -104,6 +107,7 @@ export const useQuerySubscription = () => {
             data.payload.parentId,
             data.payload.pageData,
           );
+          void refreshPageProtectionAfterMove(data.spaceId, data.payload.parentId);
           break;
         case "deleteTreeNode":
           invalidateOnDeletePage(data.payload.node.id);

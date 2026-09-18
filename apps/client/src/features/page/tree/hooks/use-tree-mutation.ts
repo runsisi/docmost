@@ -1,3 +1,4 @@
+import { refreshPageProtectionAfterMove } from "@/features/page/hooks/use-page-protection-subscription";
 import { useCallback } from "react";
 import { useAtom, useStore } from "jotai";
 import { notifications } from "@mantine/notifications";
@@ -130,6 +131,7 @@ export function useTreeMutation(spaceId: string): UseTreeMutation {
           },
         });
       }, 50);
+      await refreshPageProtectionAfterMove(spaceId, payload.parentPageId);
     },
     [setData, store, movePageMutation, spaceId, emit, t],
   );

@@ -1516,5 +1516,6 @@
   "Use space default": "使用空间默认设置",
   "Space default: locked": "空间默认：锁定",
   "Space default: unlocked": "空间默认：解锁",
-  "Last updated: {{name}}": "最后更新：{{name}}"
+  "Last updated: {{name}}": "最后更新：{{name}}",
+  "Failed to refresh page protection. Reconnect or reload to try again.": "刷新页面保护状态失败，请重新连接或刷新页面后重试。"
 }

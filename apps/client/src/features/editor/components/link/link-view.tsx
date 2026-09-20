@@ -293,10 +293,9 @@ export default function LinkView(props: MarkViewProps) {
         });
         return;
       }
+      // Create the history entry before scrolling so Back restores the reading position.
+      navigate(`${location.pathname}${location.search}#${fragment}`);
       element.scrollIntoView({ behavior: "smooth", block: "start" });
-      navigate(`${location.pathname}${location.search}#${fragment}`, {
-        replace: true,
-      });
       setPopoverState("closed");
     };
 

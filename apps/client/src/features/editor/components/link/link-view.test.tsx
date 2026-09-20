@@ -8,7 +8,13 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import LinkView from "./link-view";
 
 const mocks = vi.hoisted(() => ({ notify: vi.fn(), copy: vi.fn() }));
@@ -46,11 +52,16 @@ vi.mock("@docmost/editor-ext", async () => {
 
 function Location() {
   const location = useLocation();
+  const navigate = useNavigate();
   return (
-    <output data-testid="location">
-      {location.pathname}
-      {location.hash}
-    </output>
+    <>
+      <button onClick={() => navigate(-1)}>History back</button>
+      <button onClick={() => navigate(1)}>History forward</button>
+      <output data-testid="location">
+        {location.pathname}
+        {location.hash}
+      </output>
+    </>
   );
 }
 
@@ -67,7 +78,7 @@ function mount(
   const mark = { attrs: { href, internal: false } };
   render(
     <MantineProvider>
-      <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={["/previous-page", path]} initialIndex={1}>
         <Routes>
           <Route
             path="/s/:spaceSlug/p/:pageSlug"
@@ -121,6 +132,28 @@ afterEach(() => {
 });
 
 describe("document link navigation", () => {
+  it.each([
+    ["/s/xcube/p/title-451UtsGcio", "#fuse-index"],
+    ["/share/example/p/title-451UtsGcio", "#fuse-index"],
+    ["/docs/xcube/p/title-451UtsGcio", "#fuse-index"],
+    [
+      "/s/xcube/p/title-451UtsGcio",
+      "/s/xcube/p/title-451UtsGcio#existing-node",
+    ],
+  ])("preserves history when following %s to %s", (path, href) => {
+    mount(href, false, path);
+    fireEvent.click(screen.getByText("附录 A"));
+    const destination = path + href.slice(href.indexOf("#"));
+    expect(screen.getByTestId("location").textContent).toBe(destination);
+    fireEvent.click(screen.getByText("History back"));
+    expect(screen.getByTestId("location").textContent).toBe(path);
+    fireEvent.click(screen.getByText("History forward"));
+    expect(screen.getByTestId("location").textContent).toBe(destination);
+    fireEvent.click(screen.getByText("History back"));
+    fireEvent.click(screen.getByText("History back"));
+    expect(screen.getByTestId("location").textContent).toBe("/previous-page");
+  });
+
   it.each([
     "/s/xcube/p/title-451UtsGcio",
     "/share/example/p/title-451UtsGcio",
